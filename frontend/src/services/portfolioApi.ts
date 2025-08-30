@@ -10,7 +10,7 @@ import type {
   ApiResponse
 } from '../types/portfolio';
 
-const PORTFOLIO_BASE_URL = '/api/portfolio';
+const PORTFOLIO_BASE_URL = '/portfolio';
 
 export const portfolioApi = {
   // Portfolio projects

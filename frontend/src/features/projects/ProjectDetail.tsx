@@ -81,7 +81,7 @@ export const ProjectDetail: React.FC = () => {
     try {
       setIsCreatingPortfolio(true);
       const response = await fetch(
-        `/api/projects/${project.id}/create_portfolio_entry/`,
+        `/projects/${project.id}/create_portfolio_entry/`,
         {
           method: "POST",
           headers: {
