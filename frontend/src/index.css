@@ -1,68 +1,177 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@import "tailwindcss";
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+@theme {
+  /* Nexventures Brand Colors */
+  --color-primary: #952301;
+  --color-primary-50: #fef7f5;
+  --color-primary-100: #fdf0ec;
+  --color-primary-200: #fbe4da;
+  --color-primary-300: #f7d1be;
+  --color-primary-400: #f1b195;
+  --color-primary-500: #e68f6b;
+  --color-primary-600: #d26d45;
+  --color-primary-700: #b04f27;
+  --color-primary-800: #952301;
+  --color-primary-900: #611701;
+  --color-primary-950: #581601;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Secondary Brand Colors */
+  --color-secondary: #611701;
+  --color-secondary-50: #fef5f2;
+  --color-secondary-100: #fdeae5;
+  --color-secondary-200: #fbded5;
+  --color-secondary-300: #f7c7b7;
+  --color-secondary-400: #f1a890;
+  --color-secondary-500: #e68265;
+  --color-secondary-600: #d2603c;
+  --color-secondary-700: #b04520;
+  --color-secondary-800: #952f0f;
+  --color-secondary-900: #611701;
+
+  /* Accent Colors */
+  --color-accent: #faa389;
+  --color-accent-light: #ffd8cc;
+  --color-accent-dark: #f3683d;
+
+  /* Neutral Colors */
+  --color-neutral: #b9aaa5;
+  --color-neutral-50: #f9f8f7;
+  --color-neutral-100: #f3f1ef;
+  --color-neutral-200: #e6e2df;
+  --color-neutral-300: #d3cdc8;
+  --color-neutral-400: #b9aaa5;
+  --color-neutral-500: #a08d86;
+  --color-neutral-600: #8a756d;
+  --color-neutral-700: #72625b;
+  --color-neutral-800: #5e514c;
+  --color-neutral-900: #4f4440;
+
+  /* Status Colors */
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+  --color-info: #2563eb;
+
+  /* Background Colors */
+  --color-background: #ffffff;
+  --color-background-dark: #1f2937;
+  --color-surface: #f9fafb;
+  --color-surface-dark: #374151;
+
+  /* Text Colors */
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-tertiary: #9ca3af;
+  --color-text-inverse: #ffffff;
+
+  /* Border Colors */
+  --color-border: #e5e7eb;
+  --color-border-dark: #4b5563;
+
+  /* Custom Properties for Dark Mode */
+  --color-dark-bg: #0f172a;
+  --color-dark-surface: #1e293b;
+  --color-dark-border: #334155;
+  --color-dark-text: #f1f5f9;
+  --color-dark-text-secondary: #cbd5e1;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+/* Global Styles */
+/* * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+} */
+
+html {
+  scroll-behavior: smooth;
+  font-size: 15px;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  font-family: "Poppins", sans-serif;
+  /* font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif; */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    --color-background: var(--color-dark-bg);
+    --color-surface: var(--color-dark-surface);
+    --color-border: var(--color-dark-border);
+    --color-text-primary: var(--color-dark-text);
+    --color-text-secondary: var(--color-dark-text-secondary);
   }
-  a:hover {
-    color: #747bff;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-neutral-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary-400);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-600);
+}
+
+/* Focus styles */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
-  button {
-    background-color: #f9f9f9;
+  to {
+    opacity: 1;
   }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in-up {
+  animation: slideInUp 0.4s ease-out;
+}
+
+.animate-slide-in-down {
+  animation: slideInDown 0.4s ease-out;
 }

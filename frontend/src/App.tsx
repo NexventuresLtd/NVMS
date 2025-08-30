@@ -1,35 +1,55 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { Layout } from "./components/Layout";
+import { Dashboard } from "./features/dashboard/Dashboard";
+import { PortfolioAdmin } from "./features/portfolio/PortfolioAdmin";
+import { PortfolioList } from "./features/portfolio/PortfolioList";
+import { PortfolioDetail } from "./features/portfolio/PortfolioDetail";
+import { Login } from "./features/auth/Login";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Router>
+      <Routes>
+        {/* Login route without layout */}
+        <Route path="/login" element={<Login />} />
+
+        {/* All other routes with sidebar layout */}
+        <Route
+          path="/*"
+          element={
+            <Layout>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/portfolio" element={<PortfolioList />} />
+                <Route path="/portfolio/:slug" element={<PortfolioDetail />} />
+
+                {/* Protected admin routes */}
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/admin/portfolio" element={<PortfolioAdmin />} />
+
+                {/* Default redirect */}
+                <Route
+                  path="/"
+                  element={<Navigate to="/dashboard" replace />}
+                />
+                <Route
+                  path="*"
+                  element={<Navigate to="/dashboard" replace />}
+                />
+              </Routes>
+            </Layout>
+          }
+        />
+      </Routes>
+    </Router>
+  );
 }
 
-export default App
+export default App;
