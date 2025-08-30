@@ -80,7 +80,7 @@ export const ProjectEdit: React.FC = () => {
         live_url: projectData.live_url || "",
         staging_url: projectData.staging_url || "",
         assigned_to_id: projectData.assigned_to?.id,
-        tag_ids: projectData.tags.map((tag) => tag.id),
+        // tag_ids: projectData.tags.map((tag) => tag.id),
       });
     } catch (err) {
       console.error("Failed to load project:", err);
