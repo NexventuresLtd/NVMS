@@ -1,4 +1,4 @@
-import { api } from '../lib';
+import { api } from '../lib/api';
 import type {
   Project,
   ProjectListItem,
