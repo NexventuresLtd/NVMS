@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   Card,
   CardHeader,
@@ -7,7 +8,15 @@ import {
 } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
-import { Plus, Search, Filter, Edit, Trash2, Eye } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Filter,
+  Edit,
+  Trash2,
+  Eye,
+  FolderPlus,
+} from "lucide-react";
 import portfolioApi from "../../services/portfolioApi";
 import type {
   PortfolioListItem,
@@ -79,10 +88,18 @@ export const PortfolioAdmin: React.FC = () => {
                 Manage your portfolio projects and showcase your work.
               </p>
             </div>
-            <Button variant="primary" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add New Project
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="primary" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add New Project
+              </Button>
+              <Link to="/projects?filter=completed">
+                <Button variant="outline" className="flex items-center gap-2">
+                  <FolderPlus className="h-4 w-4" />
+                  From Completed Projects
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
 

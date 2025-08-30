@@ -78,6 +78,16 @@ class Portfolio(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     views_count = models.PositiveIntegerField(default=0)
     
+    # Link to internal project management (optional)
+    source_project = models.OneToOneField(
+        'projects.Project', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='portfolio_entry',
+        help_text="Link to the internal project that this portfolio entry showcases"
+    )
+    
     # Rich content
     detailed_description = models.TextField(blank=True, help_text="Detailed project description with markdown support")
     challenges_faced = models.TextField(blank=True, help_text="Technical challenges and solutions")

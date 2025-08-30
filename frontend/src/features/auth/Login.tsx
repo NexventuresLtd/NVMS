@@ -8,6 +8,7 @@ import {
 } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import authApi from "../../services/authApi";
 
 export const Login: React.FC = () => {
   const [credentials, setCredentials] = useState({
@@ -24,18 +25,15 @@ export const Login: React.FC = () => {
     setError("");
 
     try {
-      // Simulate login for now
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // For demo purposes, accept any credentials
-      if (credentials.username && credentials.password) {
-        localStorage.setItem("authToken", "demo-token");
-        navigate("/dashboard");
+      await authApi.login(credentials);
+      navigate("/dashboard");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      if (err.response?.status === 401) {
+        setError("Invalid username or password");
       } else {
-        setError("Please enter both username and password");
+        setError("Login failed. Please try again.");
       }
-    } catch (err) {
-      setError("Login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }

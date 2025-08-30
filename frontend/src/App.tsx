@@ -10,6 +10,9 @@ import { Dashboard } from "./features/dashboard/Dashboard";
 import { PortfolioAdmin } from "./features/portfolio/PortfolioAdmin";
 import { PortfolioList } from "./features/portfolio/PortfolioList";
 import { PortfolioDetail } from "./features/portfolio/PortfolioDetail";
+import { ProjectList } from "./features/projects/ProjectList";
+import { ProjectCreate } from "./features/projects/ProjectCreate";
+import { ProjectDetail } from "./features/projects/ProjectDetail";
 import { Login } from "./features/auth/Login";
 import "./App.css";
 
@@ -33,6 +36,11 @@ function App() {
                 {/* Protected admin routes */}
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/admin/portfolio" element={<PortfolioAdmin />} />
+
+                {/* Projects routes */}
+                <Route path="/projects" element={<ProjectList />} />
+                <Route path="/projects/create" element={<ProjectCreate />} />
+                <Route path="/projects/:id" element={<ProjectDetail />} />
 
                 {/* Default redirect */}
                 <Route

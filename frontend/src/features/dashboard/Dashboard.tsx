@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -16,16 +16,43 @@ import {
   Users,
   BarChart3,
   Plus,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
 } from "lucide-react";
+import projectsApi from "../../services/projectsApi";
+import type { ProjectStats } from "../../types/project";
 
 export const Dashboard: React.FC = () => {
+  const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
+
+  useEffect(() => {
+    loadProjectStats();
+  }, []);
+
+  const loadProjectStats = async () => {
+    try {
+      const stats = await projectsApi.getProjectStats();
+      setProjectStats(stats);
+    } catch (err) {
+      console.error("Failed to load project stats:", err);
+    }
+  };
+
   const quickActions = [
     {
-      title: "Add Project",
-      description: "Create a new portfolio project",
+      title: "New Project",
+      description: "Create a new project",
       icon: Plus,
-      href: "/admin/portfolio?action=create",
+      href: "/projects/create",
       color: "bg-blue-500",
+    },
+    {
+      title: "Add Portfolio Entry",
+      description: "Create a new portfolio entry",
+      icon: Briefcase,
+      href: "/admin/portfolio?action=create",
+      color: "bg-green-500",
     },
     {
       title: "View Portfolio",
@@ -53,31 +80,31 @@ export const Dashboard: React.FC = () => {
   const stats = [
     {
       title: "Total Projects",
-      value: "0",
+      value: projectStats?.total.toString() || "0",
       icon: FolderOpen,
       color: "text-blue-600",
       bgColor: "bg-blue-100",
     },
     {
-      title: "Team Members",
-      value: "1",
-      icon: Users,
+      title: "Completed Projects",
+      value: projectStats?.by_status.completed.toString() || "0",
+      icon: CheckCircle,
       color: "text-green-600",
       bgColor: "bg-green-100",
     },
     {
-      title: "Wallet Balance",
-      value: "$0.00",
-      icon: Wallet,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
+      title: "In Progress",
+      value: projectStats?.by_status.in_progress.toString() || "0",
+      icon: Clock,
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-100",
     },
     {
-      title: "Active Tasks",
-      value: "0",
-      icon: BarChart3,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
+      title: "Overdue Projects",
+      value: projectStats?.overdue.toString() || "0",
+      icon: AlertTriangle,
+      color: "text-red-600",
+      bgColor: "bg-red-100",
     },
   ];
 

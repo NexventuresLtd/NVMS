@@ -8,7 +8,7 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 lg:pl-64">
+    <header className="bg-white shadow-sm border-b border-gray-200">
       <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center">
           {/* Mobile menu button */}
