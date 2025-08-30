@@ -2,8 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Card,
-  CardHeader,
-  CardTitle,
   CardContent,
 } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -22,6 +20,7 @@ import type {
   PortfolioListItem,
   PortfolioFilters,
 } from "../../types/portfolio";
+import { CompletedProjectsModal } from "./CompletedProjectsModal";
 
 export const PortfolioAdmin: React.FC = () => {
   const [projects, setProjects] = useState<PortfolioListItem[]>([]);
@@ -29,6 +28,8 @@ export const PortfolioAdmin: React.FC = () => {
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<PortfolioFilters>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCompletedProjectsModalOpen, setIsCompletedProjectsModalOpen] =
+    useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -74,6 +75,11 @@ export const PortfolioAdmin: React.FC = () => {
     }
   };
 
+  const handleProjectSelected = () => {
+    // Refresh the projects list after a project is added
+    loadProjects();
+  };
+
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -89,16 +95,20 @@ export const PortfolioAdmin: React.FC = () => {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="primary" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Add New Project
-              </Button>
-              <Link to="/projects?filter=completed">
-                <Button variant="outline" className="flex items-center gap-2">
-                  <FolderPlus className="h-4 w-4" />
-                  From Completed Projects
+              <Link to="/admin/portfolio/create">
+                <Button variant="primary" className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add New Project
                 </Button>
               </Link>
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => setIsCompletedProjectsModalOpen(true)}
+              >
+                <FolderPlus className="h-4 w-4" />
+                From Completed Projects
+              </Button>
             </div>
           </div>
         </div>
@@ -248,6 +258,13 @@ export const PortfolioAdmin: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Completed Projects Modal */}
+      <CompletedProjectsModal
+        isOpen={isCompletedProjectsModalOpen}
+        onClose={() => setIsCompletedProjectsModalOpen(false)}
+        onSelect={handleProjectSelected}
+      />
     </div>
   );
 };

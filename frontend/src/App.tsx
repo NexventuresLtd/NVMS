@@ -1,4 +1,3 @@
-import React from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -8,10 +7,12 @@ import {
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { PortfolioAdmin } from "./features/portfolio/PortfolioAdmin";
+import { PortfolioCreate } from "./features/portfolio/PortfolioCreate";
 import { PortfolioList } from "./features/portfolio/PortfolioList";
 import { PortfolioDetail } from "./features/portfolio/PortfolioDetail";
 import { ProjectList } from "./features/projects/ProjectList";
 import { ProjectCreate } from "./features/projects/ProjectCreate";
+import { ProjectEdit } from "./features/projects/ProjectEdit";
 import { ProjectDetail } from "./features/projects/ProjectDetail";
 import { Login } from "./features/auth/Login";
 import "./App.css";
@@ -36,11 +37,16 @@ function App() {
                 {/* Protected admin routes */}
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/admin/portfolio" element={<PortfolioAdmin />} />
+                <Route
+                  path="/admin/portfolio/create"
+                  element={<PortfolioCreate />}
+                />
 
                 {/* Projects routes */}
                 <Route path="/projects" element={<ProjectList />} />
                 <Route path="/projects/create" element={<ProjectCreate />} />
                 <Route path="/projects/:id" element={<ProjectDetail />} />
+                <Route path="/projects/:id/edit" element={<ProjectEdit />} />
 
                 {/* Default redirect */}
                 <Route

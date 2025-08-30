@@ -227,10 +227,12 @@ export const ProjectDetail: React.FC = () => {
                   )}
                 </Button>
               )}
-              <Button variant="outline">
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Project
-              </Button>
+              <Link to={`/projects/${id}/edit`}>
+                <Button variant="outline">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Project
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

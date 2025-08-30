@@ -62,7 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile overlay */}
       {isMobile && isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
+          className="fixed inset-0 z-40 bg-gray-600/75 lg:hidden"
           onClick={onClose}
         />
       )}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
-import { Search, Filter, ExternalLink } from "lucide-react";
+import { Search, ExternalLink } from "lucide-react";
 import portfolioApi from "../../services/portfolioApi";
 import type {
   PortfolioListItem,

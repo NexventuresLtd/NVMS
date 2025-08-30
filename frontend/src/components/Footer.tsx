@@ -10,7 +10,7 @@ export const Footer: React.FC = () => {
             rights reserved.
           </div>
           <div className="text-sm text-gray-500">
-            Built with ❤️ by Nexventures
+            Built by Nexventures
           </div>
         </div>
       </div>

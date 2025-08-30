@@ -5,16 +5,12 @@ import {
   CardTitle,
   CardContent,
 } from "../../components/ui/Card";
-import { Button } from "../../components/ui/Button";
 import { Link } from "react-router-dom";
 import {
   Briefcase,
   FolderOpen,
   MessageSquare,
   Megaphone,
-  Wallet,
-  Users,
-  BarChart3,
   Plus,
   CheckCircle,
   Clock,
