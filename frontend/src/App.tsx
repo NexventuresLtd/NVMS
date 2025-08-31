@@ -16,6 +16,7 @@ import { ProjectEdit } from "./features/projects/ProjectEdit";
 import { ProjectDetail } from "./features/projects/ProjectDetail";
 import { Login } from "./features/auth/Login";
 import "./App.css";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
@@ -25,42 +26,47 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         {/* All other routes with sidebar layout */}
-        <Route
-          path="/*"
-          element={
-            <Layout>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/portfolio" element={<PortfolioList />} />
-                <Route path="/portfolio/:slug" element={<PortfolioDetail />} />
+        <Route element={<ProtectedRoute />}>
+          <Route
+            path="/*"
+            element={
+              <Layout>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/portfolio" element={<PortfolioList />} />
+                  <Route
+                    path="/portfolio/:slug"
+                    element={<PortfolioDetail />}
+                  />
 
-                {/* Protected admin routes */}
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/admin/portfolio" element={<PortfolioAdmin />} />
-                <Route
-                  path="/admin/portfolio/create"
-                  element={<PortfolioCreate />}
-                />
+                  {/* Protected admin routes */}
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/admin/portfolio" element={<PortfolioAdmin />} />
+                  <Route
+                    path="/admin/portfolio/create"
+                    element={<PortfolioCreate />}
+                  />
 
-                {/* Projects routes */}
-                <Route path="/projects" element={<ProjectList />} />
-                <Route path="/projects/create" element={<ProjectCreate />} />
-                <Route path="/projects/:id" element={<ProjectDetail />} />
-                <Route path="/projects/:id/edit" element={<ProjectEdit />} />
+                  {/* Projects routes */}
+                  <Route path="/projects" element={<ProjectList />} />
+                  <Route path="/projects/create" element={<ProjectCreate />} />
+                  <Route path="/projects/:id" element={<ProjectDetail />} />
+                  <Route path="/projects/:id/edit" element={<ProjectEdit />} />
 
-                {/* Default redirect */}
-                <Route
-                  path="/"
-                  element={<Navigate to="/dashboard" replace />}
-                />
-                <Route
-                  path="*"
-                  element={<Navigate to="/dashboard" replace />}
-                />
-              </Routes>
-            </Layout>
-          }
-        />
+                  {/* Default redirect */}
+                  <Route
+                    path="/"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
+                  <Route
+                    path="*"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
+                </Routes>
+              </Layout>
+            }
+          />
+        </Route>
       </Routes>
     </Router>
   );
