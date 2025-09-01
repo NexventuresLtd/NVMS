@@ -23,7 +23,9 @@ import {
   CheckCircle,
 } from "lucide-react";
 import projectsApi from "../../services/projectsApi";
-import type { Project } from "../../types/project";
+import { ProjectDocuments } from "./ProjectDocuments";
+import { ProjectAssignments } from "./ProjectAssignments";
+import type { Project, User as UserType } from "../../types/project";
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
@@ -34,6 +36,7 @@ export const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
+  const [users, setUsers] = useState<UserType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [newNote, setNewNote] = useState("");
@@ -49,8 +52,12 @@ export const ProjectDetail: React.FC = () => {
   const loadProject = async (projectId: string) => {
     try {
       setIsLoading(true);
-      const projectData = await projectsApi.getProject(projectId);
+      const [projectData, usersData] = await Promise.all([
+        projectsApi.getProject(projectId),
+        projectsApi.getUsers(),
+      ]);
       setProject(projectData);
+      setUsers(usersData);
     } catch (err) {
       console.error("Failed to load project:", err);
       setError("Failed to load project");
@@ -72,6 +79,18 @@ export const ProjectDetail: React.FC = () => {
       console.error("Failed to add note:", err);
     } finally {
       setIsAddingNote(false);
+    }
+  };
+
+  const handleDocumentsChange = (documents: any[]) => {
+    if (project) {
+      setProject({ ...project, documents });
+    }
+  };
+
+  const handleAssignmentsChange = (assignments: any[]) => {
+    if (project) {
+      setProject({ ...project, assignments });
     }
   };
 
@@ -391,6 +410,21 @@ export const ProjectDetail: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Project Documents */}
+            <ProjectDocuments
+              projectId={project.id}
+              documents={project.documents || []}
+              onDocumentsChange={handleDocumentsChange}
+            />
+
+            {/* Project Assignments */}
+            <ProjectAssignments
+              projectId={project.id}
+              assignments={project.assignments || []}
+              users={users}
+              onAssignmentsChange={handleAssignmentsChange}
+            />
           </div>
 
           {/* Sidebar */}
@@ -419,6 +453,19 @@ export const ProjectDetail: React.FC = () => {
                       <p className="font-medium">
                         {project.assigned_to.first_name}{" "}
                         {project.assigned_to.last_name}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {project.supervisor && (
+                  <div className="flex items-center">
+                    <User className="h-4 w-4 mr-3 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-500">Supervisor</p>
+                      <p className="font-medium">
+                        {project.supervisor.first_name}{" "}
+                        {project.supervisor.last_name}
                       </p>
                     </div>
                   </div>

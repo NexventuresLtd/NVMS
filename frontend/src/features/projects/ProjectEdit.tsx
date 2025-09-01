@@ -46,6 +46,7 @@ export const ProjectEdit: React.FC = () => {
     live_url: "",
     staging_url: "",
     assigned_to_id: undefined,
+    supervisor_id: undefined,
     tag_ids: [],
   });
 
@@ -80,7 +81,8 @@ export const ProjectEdit: React.FC = () => {
         live_url: projectData.live_url || "",
         staging_url: projectData.staging_url || "",
         assigned_to_id: projectData.assigned_to?.id,
-        // tag_ids: projectData.tags.map((tag) => tag.id),
+        supervisor_id: projectData.supervisor?.id,
+        tag_ids: projectData.tags.map((tag) => tag.id),
       });
     } catch (err) {
       console.error("Failed to load project:", err);
@@ -125,6 +127,7 @@ export const ProjectEdit: React.FC = () => {
       if (!cleanData.budget) delete cleanData.budget;
       if (!cleanData.estimated_hours) delete cleanData.estimated_hours;
       if (!cleanData.assigned_to_id) delete cleanData.assigned_to_id;
+      if (!cleanData.supervisor_id) delete cleanData.supervisor_id;
 
       await projectsApi.updateProject(id, cleanData);
       navigate(`/projects/${id}`);
@@ -462,7 +465,7 @@ export const ProjectEdit: React.FC = () => {
             <CardHeader>
               <CardTitle>Assignment</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Assigned To
@@ -474,6 +477,25 @@ export const ProjectEdit: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 >
                   <option value="">Unassigned</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.first_name} {user.last_name} ({user.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Supervisor
+                </label>
+                <select
+                  name="supervisor_id"
+                  value={formData.supervisor_id || ""}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">No supervisor</option>
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.first_name} {user.last_name} ({user.email})

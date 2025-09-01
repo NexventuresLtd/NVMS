@@ -38,6 +38,7 @@ export const ProjectCreate: React.FC = () => {
     live_url: "",
     staging_url: "",
     assigned_to_id: undefined,
+    supervisor_id: undefined,
     tag_ids: [],
   });
 
@@ -78,6 +79,7 @@ export const ProjectCreate: React.FC = () => {
       if (!cleanData.budget) delete cleanData.budget;
       if (!cleanData.estimated_hours) delete cleanData.estimated_hours;
       if (!cleanData.assigned_to_id) delete cleanData.assigned_to_id;
+      if (!cleanData.supervisor_id) delete cleanData.supervisor_id;
 
       const project = await projectsApi.createProject(cleanData);
       navigate(`/projects/${project.id}`);
@@ -264,6 +266,25 @@ export const ProjectCreate: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   >
                     <option value="">Select a user</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.first_name} {user.last_name} ({user.username})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Supervisor
+                  </label>
+                  <select
+                    name="supervisor_id"
+                    value={formData.supervisor_id || ""}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value="">Select a supervisor</option>
                     {users.map((user) => (
                       <option key={user.id} value={user.id}>
                         {user.first_name} {user.last_name} ({user.username})

@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Project, ProjectTag, ProjectTagAssignment, ProjectNote
+from .models import (
+    Project, ProjectTag, ProjectTagAssignment, ProjectNote,
+    ProjectDocument, ProjectAssignment
+)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -24,35 +27,77 @@ class ProjectNoteSerializer(serializers.ModelSerializer):
         read_only_fields = ['author', 'created_at', 'updated_at']
 
 
+class ProjectDocumentSerializer(serializers.ModelSerializer):
+    uploaded_by = UserSerializer(read_only=True)
+    file_size_mb = serializers.ReadOnlyField()
+    file_extension = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = ProjectDocument
+        fields = [
+            'id', 'title', 'document_type', 'file', 'description', 'version',
+            'uploaded_by', 'is_confidential', 'created_at', 'updated_at',
+            'file_size_mb', 'file_extension'
+        ]
+        read_only_fields = ['uploaded_by', 'created_at', 'updated_at']
+
+
+class ProjectAssignmentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    assigned_by = UserSerializer(read_only=True)
+    user_id = serializers.IntegerField(write_only=True)
+    
+    class Meta:
+        model = ProjectAssignment
+        fields = [
+            'id', 'user', 'role', 'assigned_by', 'assigned_date', 'is_active',
+            'notes', 'user_id'
+        ]
+        read_only_fields = ['assigned_by', 'assigned_date']
+
+
 class ProjectListSerializer(serializers.ModelSerializer):
     """Serializer for project list view with essential fields"""
     assigned_to = UserSerializer(read_only=True)
+    supervisor = UserSerializer(read_only=True)
     created_by = UserSerializer(read_only=True)
     tags = ProjectTagSerializer(source='tag_assignments.tag', many=True, read_only=True)
     progress_percentage = serializers.ReadOnlyField()
     is_overdue = serializers.ReadOnlyField()
+    document_count = serializers.ReadOnlyField()
+    team_member_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Project
         fields = [
             'id', 'title', 'slug', 'description', 'status', 'priority',
-            'start_date', 'due_date', 'client_name', 'assigned_to', 'created_by',
-            'budget', 'estimated_hours', 'actual_hours', 'created_at', 'updated_at',
-            'progress_percentage', 'is_overdue', 'tags'
+            'start_date', 'due_date', 'client_name', 'assigned_to', 'supervisor', 
+            'created_by', 'budget', 'estimated_hours', 'actual_hours', 'created_at', 
+            'updated_at', 'progress_percentage', 'is_overdue', 'tags', 'document_count',
+            'team_member_count'
         ]
+    
+    def get_team_member_count(self, obj):
+        return obj.assignments.filter(is_active=True).count()
 
 
 class ProjectDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for project detail view"""
     assigned_to = UserSerializer(read_only=True)
+    supervisor = UserSerializer(read_only=True)
     created_by = UserSerializer(read_only=True)
     tags = ProjectTagSerializer(source='tag_assignments.tag', many=True, read_only=True)
     notes = ProjectNoteSerializer(many=True, read_only=True)
+    documents = ProjectDocumentSerializer(many=True, read_only=True)
+    assignments = ProjectAssignmentSerializer(many=True, read_only=True)
     progress_percentage = serializers.ReadOnlyField()
     is_overdue = serializers.ReadOnlyField()
+    document_count = serializers.ReadOnlyField()
+    team_members = UserSerializer(many=True, read_only=True)
     
     # Write fields for relationships
     assigned_to_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    supervisor_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     tag_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -64,16 +109,18 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'slug', 'description', 'status', 'priority',
             'start_date', 'due_date', 'completed_date', 'client_name', 'client_email',
-            'assigned_to', 'created_by', 'budget', 'estimated_hours', 'actual_hours',
+            'assigned_to', 'supervisor', 'created_by', 'budget', 'estimated_hours', 'actual_hours',
             'repository_url', 'live_url', 'staging_url', 'created_at', 'updated_at',
-            'is_active', 'progress_percentage', 'is_overdue', 'tags', 'notes',
-            'assigned_to_id', 'tag_ids'
+            'is_active', 'progress_percentage', 'is_overdue', 'tags', 'notes', 'documents',
+            'assignments', 'document_count', 'team_members',
+            'assigned_to_id', 'supervisor_id', 'tag_ids'
         ]
         read_only_fields = ['slug', 'created_by', 'created_at', 'updated_at']
     
     def create(self, validated_data):
         tag_ids = validated_data.pop('tag_ids', [])
         assigned_to_id = validated_data.pop('assigned_to_id', None)
+        supervisor_id = validated_data.pop('supervisor_id', None)
         
         # Set the creator
         validated_data['created_by'] = self.context['request'].user
@@ -82,6 +129,13 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         if assigned_to_id:
             try:
                 validated_data['assigned_to'] = User.objects.get(id=assigned_to_id)
+            except User.DoesNotExist:
+                pass
+        
+        # Set supervisor if provided
+        if supervisor_id:
+            try:
+                validated_data['supervisor'] = User.objects.get(id=supervisor_id)
             except User.DoesNotExist:
                 pass
         
@@ -100,6 +154,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         tag_ids = validated_data.pop('tag_ids', None)
         assigned_to_id = validated_data.pop('assigned_to_id', None)
+        supervisor_id = validated_data.pop('supervisor_id', None)
         
         # Update assigned user if provided
         if assigned_to_id is not None:
@@ -110,6 +165,16 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
                     pass
             else:
                 instance.assigned_to = None
+        
+        # Update supervisor if provided
+        if supervisor_id is not None:
+            if supervisor_id:
+                try:
+                    instance.supervisor = User.objects.get(id=supervisor_id)
+                except User.DoesNotExist:
+                    pass
+            else:
+                instance.supervisor = None
         
         # Update other fields
         for attr, value in validated_data.items():
@@ -136,6 +201,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
 class ProjectCreateSerializer(serializers.ModelSerializer):
     """Simplified serializer for project creation"""
     assigned_to_id = serializers.IntegerField(required=False, allow_null=True)
+    supervisor_id = serializers.IntegerField(required=False, allow_null=True)
     tag_ids = serializers.ListField(
         child=serializers.IntegerField(),
         required=False
@@ -146,12 +212,14 @@ class ProjectCreateSerializer(serializers.ModelSerializer):
         fields = [
             'title', 'description', 'status', 'priority', 'start_date', 'due_date',
             'client_name', 'client_email', 'budget', 'estimated_hours',
-            'repository_url', 'live_url', 'staging_url', 'assigned_to_id', 'tag_ids'
+            'repository_url', 'live_url', 'staging_url', 'assigned_to_id', 
+            'supervisor_id', 'tag_ids'
         ]
     
     def create(self, validated_data):
         tag_ids = validated_data.pop('tag_ids', [])
         assigned_to_id = validated_data.pop('assigned_to_id', None)
+        supervisor_id = validated_data.pop('supervisor_id', None)
         
         # Set the creator
         validated_data['created_by'] = self.context['request'].user
@@ -160,6 +228,13 @@ class ProjectCreateSerializer(serializers.ModelSerializer):
         if assigned_to_id:
             try:
                 validated_data['assigned_to'] = User.objects.get(id=assigned_to_id)
+            except User.DoesNotExist:
+                pass
+        
+        # Set supervisor if provided
+        if supervisor_id:
+            try:
+                validated_data['supervisor'] = User.objects.get(id=supervisor_id)
             except User.DoesNotExist:
                 pass
         

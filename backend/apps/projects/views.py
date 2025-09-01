@@ -2,26 +2,29 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth.models import User
-from .models import Project, ProjectTag, ProjectNote
+from .models import Project, ProjectTag, ProjectNote, ProjectDocument, ProjectAssignment
 from .serializers import (
     ProjectListSerializer,
     ProjectDetailSerializer,
     ProjectCreateSerializer,
     ProjectTagSerializer,
     ProjectNoteSerializer,
+    ProjectDocumentSerializer,
+    ProjectAssignmentSerializer,
     UserSerializer
 )
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.filter(is_active=True).select_related(
-        'assigned_to', 'created_by'
-    ).prefetch_related('tag_assignments__tag', 'notes')
+        'assigned_to', 'supervisor', 'created_by'
+    ).prefetch_related('tag_assignments__tag', 'notes', 'documents', 'assignments__user')
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'priority', 'assigned_to', 'created_by']
+    filterset_fields = ['status', 'priority', 'assigned_to', 'supervisor', 'created_by']
     search_fields = ['title', 'description', 'client_name']
     ordering_fields = ['created_at', 'updated_at', 'due_date', 'priority']
     ordering = ['-created_at']
@@ -62,6 +65,72 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer.save(project=project, author=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def upload_document(self, request, pk=None):
+        """Upload a document to the project"""
+        project = self.get_object()
+        serializer = ProjectDocumentSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save(project=project, uploaded_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['get'])
+    def documents(self, request, pk=None):
+        """Get all documents for a project"""
+        project = self.get_object()
+        documents = project.documents.all()
+        serializer = ProjectDocumentSerializer(documents, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def assign_user(self, request, pk=None):
+        """Assign a user to the project with a specific role"""
+        project = self.get_object()
+        serializer = ProjectAssignmentSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            user_id = serializer.validated_data['user_id']
+            try:
+                user = User.objects.get(id=user_id)
+                serializer.save(project=project, user=user, assigned_by=request.user)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except User.DoesNotExist:
+                return Response(
+                    {'error': 'User not found'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['get'])
+    def assignments(self, request, pk=None):
+        """Get all assignments for a project"""
+        project = self.get_object()
+        assignments = project.assignments.filter(is_active=True)
+        serializer = ProjectAssignmentSerializer(assignments, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['delete'])
+    def remove_assignment(self, request, pk=None):
+        """Remove a user assignment from the project"""
+        project = self.get_object()
+        assignment_id = request.data.get('assignment_id')
+        
+        try:
+            assignment = ProjectAssignment.objects.get(
+                id=assignment_id, 
+                project=project
+            )
+            assignment.is_active = False
+            assignment.save()
+            return Response({'message': 'Assignment removed'})
+        except ProjectAssignment.DoesNotExist:
+            return Response(
+                {'error': 'Assignment not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
     
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
@@ -183,3 +252,41 @@ class UserListViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
     ordering = ['username']
+
+
+class ProjectDocumentViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing project documents"""
+    serializer_class = ProjectDocumentSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    
+    def get_queryset(self):
+        return ProjectDocument.objects.filter(
+            project_id=self.kwargs['project_pk']
+        )
+    
+    def perform_create(self, serializer):
+        project = Project.objects.get(pk=self.kwargs['project_pk'])
+        serializer.save(project=project, uploaded_by=self.request.user)
+
+
+class ProjectAssignmentViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing project assignments"""
+    serializer_class = ProjectAssignmentSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return ProjectAssignment.objects.filter(
+            project_id=self.kwargs['project_pk'],
+            is_active=True
+        )
+    
+    def perform_create(self, serializer):
+        project = Project.objects.get(pk=self.kwargs['project_pk'])
+        user_id = serializer.validated_data['user_id']
+        user = User.objects.get(id=user_id)
+        serializer.save(
+            project=project, 
+            user=user, 
+            assigned_by=self.request.user
+        )

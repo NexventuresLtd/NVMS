@@ -1,8 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.text import slugify
-from django.core.validators import URLValidator
+from django.core.validators import URLValidator, FileExtensionValidator
 import uuid
+import os
 
 
 class ProjectStatus(models.TextChoices):
@@ -19,6 +20,25 @@ class ProjectPriority(models.TextChoices):
     MEDIUM = 'medium', 'Medium'
     HIGH = 'high', 'High'
     URGENT = 'urgent', 'Urgent'
+
+
+class DocumentType(models.TextChoices):
+    CONTRACT = 'contract', 'Contract'
+    SRS = 'srs', 'Software Requirements Specification'
+    PLAN = 'plan', 'Project Plan'
+    DESIGN = 'design', 'Design Document'
+    PROPOSAL = 'proposal', 'Proposal'
+    INVOICE = 'invoice', 'Invoice'
+    OTHER = 'other', 'Other'
+
+
+class AssignmentRole(models.TextChoices):
+    SUPERVISOR = 'supervisor', 'Supervisor'
+    DEVELOPER = 'developer', 'Developer'
+    DESIGNER = 'designer', 'Designer'
+    TESTER = 'tester', 'Tester'
+    PROJECT_MANAGER = 'project_manager', 'Project Manager'
+    CLIENT_CONTACT = 'client_contact', 'Client Contact'
 
 
 class Project(models.Model):
@@ -52,7 +72,16 @@ class Project(models.Model):
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
-        related_name='assigned_projects'
+        related_name='assigned_projects',
+        help_text="Primary assignee (for backward compatibility)"
+    )
+    supervisor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='supervised_projects',
+        help_text="Project supervisor"
     )
     created_by = models.ForeignKey(
         User, 
@@ -138,6 +167,33 @@ class Project(models.Model):
         }
         
         return Portfolio.objects.create(**portfolio_data)
+    
+    @property
+    def team_members(self):
+        """Get all assigned team members"""
+        return User.objects.filter(
+            project_assignments__project=self,
+            project_assignments__is_active=True
+        ).distinct()
+    
+    @property
+    def team_supervisors(self):
+        """Get all supervisors"""
+        return User.objects.filter(
+            project_assignments__project=self,
+            project_assignments__role=AssignmentRole.SUPERVISOR,
+            project_assignments__is_active=True
+        ).distinct()
+    
+    @property
+    def document_count(self):
+        """Get total number of documents"""
+        return self.documents.count()
+    
+    @property
+    def confidential_document_count(self):
+        """Get number of confidential documents"""
+        return self.documents.filter(is_confidential=True).count()
 
 
 class ProjectTag(models.Model):
@@ -174,3 +230,78 @@ class ProjectNote(models.Model):
     
     def __str__(self):
         return f"Note for {self.project.title} by {self.author.username}"
+
+
+def project_document_upload_path(instance, filename):
+    """Generate upload path for project documents"""
+    return f'projects/{instance.project.id}/documents/{filename}'
+
+
+class ProjectDocument(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='documents')
+    title = models.CharField(max_length=200)
+    document_type = models.CharField(
+        max_length=20,
+        choices=DocumentType.choices,
+        default=DocumentType.OTHER
+    )
+    file = models.FileField(
+        upload_to=project_document_upload_path,
+        validators=[FileExtensionValidator(allowed_extensions=[
+            'pdf', 'doc', 'docx', 'txt', 'md', 'xlsx', 'xls', 'ppt', 'pptx',
+            'jpg', 'jpeg', 'png', 'gif', 'svg', 'zip', 'rar'
+        ])]
+    )
+    description = models.TextField(blank=True)
+    version = models.CharField(max_length=20, default='1.0')
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    is_confidential = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['project', 'title', 'version']
+    
+    def __str__(self):
+        return f"{self.title} ({self.get_document_type_display()}) - {self.project.title}"
+    
+    @property
+    def file_size_mb(self):
+        """Get file size in MB"""
+        if self.file:
+            return round(self.file.size / (1024 * 1024), 2)
+        return 0
+    
+    @property
+    def file_extension(self):
+        """Get file extension"""
+        if self.file:
+            return os.path.splitext(self.file.name)[1].lower()
+        return ''
+
+
+class ProjectAssignment(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='assignments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_assignments')
+    role = models.CharField(
+        max_length=20,
+        choices=AssignmentRole.choices,
+        default=AssignmentRole.DEVELOPER
+    )
+    assigned_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='assignments_made'
+    )
+    assigned_date = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        unique_together = ['project', 'user', 'role']
+        ordering = ['role', 'assigned_date']
+    
+    def __str__(self):
+        return f"{self.user.get_full_name() or self.user.username} - {self.get_role_display()} on {self.project.title}"

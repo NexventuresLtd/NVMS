@@ -8,6 +8,10 @@ import type {
   ProjectTag,
   User,
   ProjectNote,
+  ProjectDocument,
+  ProjectDocumentCreate,
+  ProjectAssignment,
+  ProjectAssignmentCreate,
 } from '../types/project';
 
 export interface ProjectsResponse {
@@ -100,6 +104,57 @@ class ProjectsApi {
   async getUsers(): Promise<User[]> {
     const response = await api.get('/users/');
     return response.data.results || response.data;
+  }
+
+  // Project documents
+  async getProjectDocuments(projectId: string): Promise<ProjectDocument[]> {
+    const response = await api.get(`/projects/${projectId}/documents/`);
+    return response.data.results || response.data;
+  }
+
+  async uploadDocument(projectId: string, documentData: ProjectDocumentCreate): Promise<ProjectDocument> {
+    const formData = new FormData();
+    formData.append('title', documentData.title);
+    formData.append('document_type', documentData.document_type);
+    formData.append('file', documentData.file);
+    if (documentData.description) formData.append('description', documentData.description);
+    if (documentData.version) formData.append('version', documentData.version);
+    if (documentData.is_confidential !== undefined) {
+      formData.append('is_confidential', documentData.is_confidential.toString());
+    }
+
+    const response = await api.post(`/projects/${projectId}/upload_document/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  async deleteDocument(projectId: string, documentId: number): Promise<void> {
+    await api.delete(`/projects/${projectId}/documents/${documentId}/`);
+  }
+
+  // Project assignments
+  async getProjectAssignments(projectId: string): Promise<ProjectAssignment[]> {
+    const response = await api.get(`/projects/${projectId}/assignments/`);
+    return response.data.results || response.data;
+  }
+
+  async assignUser(projectId: string, assignmentData: ProjectAssignmentCreate): Promise<ProjectAssignment> {
+    const response = await api.post(`/projects/${projectId}/assign_user/`, assignmentData);
+    return response.data;
+  }
+
+  async removeAssignment(projectId: string, assignmentId: number): Promise<void> {
+    await api.delete(`/projects/${projectId}/remove_assignment/`, {
+      data: { assignment_id: assignmentId }
+    });
+  }
+
+  async updateAssignment(projectId: string, assignmentId: number, data: Partial<ProjectAssignmentCreate>): Promise<ProjectAssignment> {
+    const response = await api.patch(`/projects/${projectId}/assignments/${assignmentId}/`, data);
+    return response.data;
   }
 }
 

@@ -12,6 +12,7 @@ export interface Project {
   client_name?: string;
   client_email?: string;
   assigned_to?: User;
+  supervisor?: User;
   created_by: User;
   budget?: number;
   estimated_hours?: number;
@@ -26,6 +27,10 @@ export interface Project {
   is_overdue: boolean;
   tags: ProjectTag[];
   notes: ProjectNote[];
+  documents: ProjectDocument[];
+  assignments: ProjectAssignment[];
+  document_count: number;
+  team_members: User[];
 }
 
 export interface ProjectListItem {
@@ -39,6 +44,7 @@ export interface ProjectListItem {
   due_date?: string;
   client_name?: string;
   assigned_to?: User;
+  supervisor?: User;
   created_by: User;
   budget?: number;
   estimated_hours?: number;
@@ -48,6 +54,8 @@ export interface ProjectListItem {
   progress_percentage: number;
   is_overdue: boolean;
   tags: ProjectTag[];
+  document_count: number;
+  team_member_count: number;
 }
 
 export interface ProjectCreateData {
@@ -65,6 +73,7 @@ export interface ProjectCreateData {
   live_url?: string;
   staging_url?: string;
   assigned_to_id?: number;
+  supervisor_id?: number;
   tag_ids?: number[];
 }
 
@@ -151,4 +160,91 @@ export const PROJECT_PRIORITY_COLORS: Record<ProjectPriority, string> = {
   medium: 'bg-yellow-100 text-yellow-800',
   high: 'bg-orange-100 text-orange-800',
   urgent: 'bg-red-100 text-red-800',
+};
+
+// Document types
+export type DocumentType = 
+  | 'contract' 
+  | 'srs' 
+  | 'plan' 
+  | 'design' 
+  | 'proposal' 
+  | 'invoice' 
+  | 'other';
+
+export interface ProjectDocument {
+  id: number;
+  title: string;
+  document_type: DocumentType;
+  file: string;
+  description: string;
+  version: string;
+  uploaded_by: User;
+  is_confidential: boolean;
+  created_at: string;
+  updated_at: string;
+  file_size_mb: number;
+  file_extension: string;
+}
+
+// Assignment types
+export type AssignmentRole = 
+  | 'supervisor' 
+  | 'developer' 
+  | 'designer' 
+  | 'tester' 
+  | 'project_manager' 
+  | 'client_contact';
+
+export interface ProjectAssignment {
+  id: number;
+  user: User;
+  role: AssignmentRole;
+  assigned_by: User;
+  assigned_date: string;
+  is_active: boolean;
+  notes: string;
+}
+
+export interface ProjectAssignmentCreate {
+  user_id: number;
+  role: AssignmentRole;
+  notes?: string;
+}
+
+export interface ProjectDocumentCreate {
+  title: string;
+  document_type: DocumentType;
+  file: File;
+  description?: string;
+  version?: string;
+  is_confidential?: boolean;
+}
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  contract: 'Contract',
+  srs: 'Software Requirements Specification',
+  plan: 'Project Plan',
+  design: 'Design Document',
+  proposal: 'Proposal',
+  invoice: 'Invoice',
+  other: 'Other',
+};
+
+export const ASSIGNMENT_ROLE_LABELS: Record<AssignmentRole, string> = {
+  supervisor: 'Supervisor',
+  developer: 'Developer',
+  designer: 'Designer',
+  tester: 'Tester',
+  project_manager: 'Project Manager',
+  client_contact: 'Client Contact',
+};
+
+export const ASSIGNMENT_ROLE_COLORS: Record<AssignmentRole, string> = {
+  supervisor: 'bg-purple-100 text-purple-800',
+  developer: 'bg-blue-100 text-blue-800',
+  designer: 'bg-pink-100 text-pink-800',
+  tester: 'bg-green-100 text-green-800',
+  project_manager: 'bg-indigo-100 text-indigo-800',
+  client_contact: 'bg-gray-100 text-gray-800',
 };
