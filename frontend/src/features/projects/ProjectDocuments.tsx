@@ -37,7 +37,9 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [showUploadForm, setShowUploadForm] = useState(false);
-  const [uploadData, setUploadData] = useState<Omit<ProjectDocumentCreate, 'file'>>({
+  const [uploadData, setUploadData] = useState<
+    Omit<ProjectDocumentCreate, "file">
+  >({
     title: "",
     document_type: "other" as DocumentType,
     description: "",
@@ -52,8 +54,8 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
       setSelectedFile(file);
       // Auto-fill title if empty
       if (!uploadData.title) {
-        const fileName = file.name.split('.')[0];
-        setUploadData(prev => ({ ...prev, title: fileName }));
+        const fileName = file.name.split(".")[0];
+        setUploadData((prev) => ({ ...prev, title: fileName }));
       }
     }
   };
@@ -69,9 +71,12 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
         file: selectedFile,
       };
 
-      const newDocument = await projectsApi.uploadDocument(projectId, documentData);
+      const newDocument = await projectsApi.uploadDocument(
+        projectId,
+        documentData
+      );
       onDocumentsChange([...documents, newDocument]);
-      
+
       // Reset form
       setUploadData({
         title: "",
@@ -94,7 +99,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
     try {
       await projectsApi.deleteDocument(projectId, documentId);
-      onDocumentsChange(documents.filter(doc => doc.id !== documentId));
+      onDocumentsChange(documents.filter((doc) => doc.id !== documentId));
     } catch (error) {
       console.error("Failed to delete document:", error);
     }
@@ -106,11 +111,16 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
   };
 
   const getFileIcon = (extension: string) => {
-    if (['.pdf'].includes(extension)) return <FileText className="h-5 w-5 text-red-500" />;
-    if (['.doc', '.docx'].includes(extension)) return <FileText className="h-5 w-5 text-blue-500" />;
-    if (['.xls', '.xlsx'].includes(extension)) return <FileText className="h-5 w-5 text-green-500" />;
-    if (['.ppt', '.pptx'].includes(extension)) return <FileText className="h-5 w-5 text-orange-500" />;
-    if (['.jpg', '.jpeg', '.png', '.gif'].includes(extension)) return <Eye className="h-5 w-5 text-purple-500" />;
+    if ([".pdf"].includes(extension))
+      return <FileText className="h-5 w-5 text-red-500" />;
+    if ([".doc", ".docx"].includes(extension))
+      return <FileText className="h-5 w-5 text-blue-500" />;
+    if ([".xls", ".xlsx"].includes(extension))
+      return <FileText className="h-5 w-5 text-green-500" />;
+    if ([".ppt", ".pptx"].includes(extension))
+      return <FileText className="h-5 w-5 text-orange-500" />;
+    if ([".jpg", ".jpeg", ".png", ".gif"].includes(extension))
+      return <Eye className="h-5 w-5 text-purple-500" />;
     return <File className="h-5 w-5 text-gray-500" />;
   };
 
@@ -122,10 +132,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
             <FileText className="h-5 w-5 mr-2" />
             Project Documents ({documents.length})
           </CardTitle>
-          <Button
-            onClick={() => setShowUploadForm(!showUploadForm)}
-            size="sm"
-          >
+          <Button onClick={() => setShowUploadForm(!showUploadForm)} size="sm">
             <Upload className="h-4 w-4 mr-2" />
             Upload Document
           </Button>
@@ -143,7 +150,12 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                   </label>
                   <Input
                     value={uploadData.title}
-                    onChange={(e) => setUploadData(prev => ({ ...prev, title: e.target.value }))}
+                    onChange={(e) =>
+                      setUploadData((prev) => ({
+                        ...prev,
+                        title: e.target.value,
+                      }))
+                    }
                     placeholder="Contract, SRS, etc."
                     required
                   />
@@ -155,14 +167,21 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                   </label>
                   <select
                     value={uploadData.document_type}
-                    onChange={(e) => setUploadData(prev => ({ ...prev, document_type: e.target.value as DocumentType }))}
+                    onChange={(e) =>
+                      setUploadData((prev) => ({
+                        ...prev,
+                        document_type: e.target.value as DocumentType,
+                      }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   >
-                    {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
+                    {Object.entries(DOCUMENT_TYPE_LABELS).map(
+                      ([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
               </div>
@@ -174,7 +193,12 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                   </label>
                   <Input
                     value={uploadData.version}
-                    onChange={(e) => setUploadData(prev => ({ ...prev, version: e.target.value }))}
+                    onChange={(e) =>
+                      setUploadData((prev) => ({
+                        ...prev,
+                        version: e.target.value,
+                      }))
+                    }
                     placeholder="1.0"
                   />
                 </div>
@@ -184,10 +208,18 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     type="checkbox"
                     id="is_confidential"
                     checked={uploadData.is_confidential}
-                    onChange={(e) => setUploadData(prev => ({ ...prev, is_confidential: e.target.checked }))}
+                    onChange={(e) =>
+                      setUploadData((prev) => ({
+                        ...prev,
+                        is_confidential: e.target.checked,
+                      }))
+                    }
                     className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
-                  <label htmlFor="is_confidential" className="text-sm text-gray-700">
+                  <label
+                    htmlFor="is_confidential"
+                    className="text-sm text-gray-700"
+                  >
                     Confidential Document
                   </label>
                 </div>
@@ -199,7 +231,12 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                 </label>
                 <textarea
                   value={uploadData.description}
-                  onChange={(e) => setUploadData(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) =>
+                    setUploadData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
                   placeholder="Brief description of the document"
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -219,7 +256,8 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                 />
                 {selectedFile && (
                   <p className="text-sm text-gray-600 mt-1">
-                    Selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+                    Selected: {selectedFile.name} (
+                    {Math.round(selectedFile.size / 1024)} KB)
                   </p>
                 )}
               </div>
@@ -238,9 +276,9 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     </>
                   )}
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setShowUploadForm(false)}
                 >
                   Cancel
@@ -254,7 +292,9 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
           <div className="text-center py-8 text-gray-500">
             <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
             <p>No documents uploaded yet</p>
-            <p className="text-sm">Upload contracts, SRS, plans, and other project documents</p>
+            <p className="text-sm">
+              Upload contracts, SRS, plans, and other project documents
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -283,7 +323,8 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                       <span>v{document.version}</span>
                       <span>{formatFileSize(document.file_size_mb)}</span>
                       <span>
-                        Uploaded by {document.uploaded_by.first_name} {document.uploaded_by.last_name} 
+                        Uploaded by {document.uploaded_by.first_name}{" "}
+                        {document.uploaded_by.last_name}
                         on {new Date(document.created_at).toLocaleDateString()}
                       </span>
                     </div>
@@ -298,7 +339,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => window.open(document.file, '_blank')}
+                    onClick={() => window.open(document.file, "_blank")}
                   >
                     <Download className="h-4 w-4" />
                   </Button>

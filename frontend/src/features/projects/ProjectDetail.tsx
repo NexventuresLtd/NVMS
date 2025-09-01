@@ -21,6 +21,9 @@ import {
   Plus,
   Award,
   CheckCircle,
+  FileText,
+  Users,
+  BarChart3,
 } from "lucide-react";
 import projectsApi from "../../services/projectsApi";
 import { ProjectDocuments } from "./ProjectDocuments";
@@ -42,6 +45,9 @@ export const ProjectDetail: React.FC = () => {
   const [newNote, setNewNote] = useState("");
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "documents" | "team">(
+    "overview"
+  );
 
   useEffect(() => {
     if (id) {
@@ -256,175 +262,227 @@ export const ProjectDetail: React.FC = () => {
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="mb-8">
+          <div className="border-b border-gray-200">
+            <nav className="flex space-x-8" aria-label="Tabs">
+              <button
+                onClick={() => setActiveTab("overview")}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "overview"
+                    ? "border-primary-500 text-primary-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <BarChart3 className="h-4 w-4 mr-2 inline" />
+                Overview
+              </button>
+              <button
+                onClick={() => setActiveTab("documents")}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "documents"
+                    ? "border-primary-500 text-primary-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <FileText className="h-4 w-4 mr-2 inline" />
+                Documents
+              </button>
+              <button
+                onClick={() => setActiveTab("team")}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "team"
+                    ? "border-primary-500 text-primary-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <Users className="h-4 w-4 mr-2 inline" />
+                Team Members
+              </button>
+            </nav>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Progress */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Project Progress</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                    <span>Overall Progress</span>
-                    <span>{project.progress_percentage}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-primary-600 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${project.progress_percentage}%` }}
-                    ></div>
-                  </div>
-                </div>
-
-                {project.estimated_hours && (
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Estimated Hours:</span>
-                      <span className="font-medium ml-2">
-                        {project.estimated_hours}h
-                      </span>
+            {/* Overview Tab */}
+            {activeTab === "overview" && (
+              <>
+                {/* Progress */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Project Progress</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                        <span>Overall Progress</span>
+                        <span>{project.progress_percentage}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div
+                          className="bg-primary-600 h-3 rounded-full transition-all duration-300"
+                          style={{ width: `${project.progress_percentage}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-gray-500">Actual Hours:</span>
-                      <span className="font-medium ml-2">
-                        {project.actual_hours}h
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
-            {/* Project URLs */}
-            {(project.repository_url ||
-              project.live_url ||
-              project.staging_url) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Project Links</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {project.repository_url && (
-                    <a
-                      href={project.repository_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center text-primary-600 hover:text-primary-700"
-                    >
-                      <Github className="h-4 w-4 mr-2" />
-                      Repository
-                      <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
-                  )}
-                  {project.live_url && (
-                    <a
-                      href={project.live_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center text-primary-600 hover:text-primary-700"
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Live Site
-                      <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
-                  )}
-                  {project.staging_url && (
-                    <a
-                      href={project.staging_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center text-primary-600 hover:text-primary-700"
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Staging
-                      <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Notes */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <MessageSquare className="h-5 w-5 mr-2" />
-                  Project Notes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* Add Note Form */}
-                <form onSubmit={handleAddNote} className="mb-6">
-                  <div className="flex gap-2">
-                    <Input
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="Add a note..."
-                      className="flex-1"
-                    />
-                    <Button
-                      type="submit"
-                      disabled={isAddingNote || !newNote.trim()}
-                    >
-                      {isAddingNote ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      ) : (
-                        <Plus className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </form>
-
-                {/* Notes List */}
-                <div className="space-y-4">
-                  {project.notes.map((note) => (
-                    <div key={note.id} className="border rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-2">
+                    {project.estimated_hours && (
+                      <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="font-medium text-gray-900">
-                            {note.author.first_name} {note.author.last_name}
+                          <span className="text-gray-500">
+                            Estimated Hours:
                           </span>
-                          <span className="text-sm text-gray-500 ml-2">
-                            {formatDate(note.created_at)}
+                          <span className="font-medium ml-2">
+                            {project.estimated_hours}h
                           </span>
                         </div>
-                        {note.is_internal && (
-                          <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">
-                            Internal
+                        <div>
+                          <span className="text-gray-500">Actual Hours:</span>
+                          <span className="font-medium ml-2">
+                            {project.actual_hours}h
                           </span>
-                        )}
+                        </div>
                       </div>
-                      <p className="text-gray-700 whitespace-pre-wrap">
-                        {note.content}
-                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Project URLs */}
+                {(project.repository_url ||
+                  project.live_url ||
+                  project.staging_url) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Project Links</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {project.repository_url && (
+                        <a
+                          href={project.repository_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-primary-600 hover:text-primary-700"
+                        >
+                          <Github className="h-4 w-4 mr-2" />
+                          Repository
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </a>
+                      )}
+                      {project.live_url && (
+                        <a
+                          href={project.live_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-primary-600 hover:text-primary-700"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Live Site
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </a>
+                      )}
+                      {project.staging_url && (
+                        <a
+                          href={project.staging_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-primary-600 hover:text-primary-700"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Staging
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </a>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Notes */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <MessageSquare className="h-5 w-5 mr-2" />
+                      Project Notes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Add Note Form */}
+                    <form onSubmit={handleAddNote} className="mb-6">
+                      <div className="flex gap-2">
+                        <Input
+                          value={newNote}
+                          onChange={(e) => setNewNote(e.target.value)}
+                          placeholder="Add a note..."
+                          className="flex-1"
+                        />
+                        <Button
+                          type="submit"
+                          disabled={isAddingNote || !newNote.trim()}
+                        >
+                          {isAddingNote ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          ) : (
+                            <Plus className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+
+                    {/* Notes List */}
+                    <div className="space-y-4">
+                      {project.notes.map((note) => (
+                        <div key={note.id} className="border rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <span className="font-medium text-gray-900">
+                                {note.author.first_name} {note.author.last_name}
+                              </span>
+                              <span className="text-sm text-gray-500 ml-2">
+                                {formatDate(note.created_at)}
+                              </span>
+                            </div>
+                            {note.is_internal && (
+                              <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">
+                                Internal
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-gray-700 whitespace-pre-wrap">
+                            {note.content}
+                          </p>
+                        </div>
+                      ))}
+
+                      {project.notes.length === 0 && (
+                        <p className="text-gray-500 text-center py-4">
+                          No notes yet
+                        </p>
+                      )}
                     </div>
-                  ))}
+                  </CardContent>
+                </Card>
+              </>
+            )}
 
-                  {project.notes.length === 0 && (
-                    <p className="text-gray-500 text-center py-4">
-                      No notes yet
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            {/* Documents Tab */}
+            {activeTab === "documents" && (
+              <ProjectDocuments
+                projectId={project.id}
+                documents={project.documents || []}
+                onDocumentsChange={handleDocumentsChange}
+              />
+            )}
 
-            {/* Project Documents */}
-            <ProjectDocuments
-              projectId={project.id}
-              documents={project.documents || []}
-              onDocumentsChange={handleDocumentsChange}
-            />
-
-            {/* Project Assignments */}
-            <ProjectAssignments
-              projectId={project.id}
-              assignments={project.assignments || []}
-              users={users}
-              onAssignmentsChange={handleAssignmentsChange}
-            />
+            {/* Team Tab */}
+            {activeTab === "team" && (
+              <ProjectAssignments
+                projectId={project.id}
+                assignments={project.assignments || []}
+                users={users}
+                onAssignmentsChange={handleAssignmentsChange}
+              />
+            )}
           </div>
 
           {/* Sidebar */}

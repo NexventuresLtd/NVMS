@@ -44,11 +44,13 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
 }) => {
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
-  const [assignmentData, setAssignmentData] = useState<ProjectAssignmentCreate>({
-    user_id: 0,
-    role: "developer",
-    notes: "",
-  });
+  const [assignmentData, setAssignmentData] = useState<ProjectAssignmentCreate>(
+    {
+      user_id: 0,
+      role: "developer",
+      notes: "",
+    }
+  );
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,9 +58,12 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
 
     setIsAssigning(true);
     try {
-      const newAssignment = await projectsApi.assignUser(projectId, assignmentData);
+      const newAssignment = await projectsApi.assignUser(
+        projectId,
+        assignmentData
+      );
       onAssignmentsChange([...assignments, newAssignment]);
-      
+
       // Reset form
       setAssignmentData({
         user_id: 0,
@@ -78,7 +83,9 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
 
     try {
       await projectsApi.removeAssignment(projectId, assignmentId);
-      onAssignmentsChange(assignments.filter(assignment => assignment.id !== assignmentId));
+      onAssignmentsChange(
+        assignments.filter((assignment) => assignment.id !== assignmentId)
+      );
     } catch (error) {
       console.error("Failed to remove assignment:", error);
     }
@@ -86,17 +93,17 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
 
   const getRoleIcon = (role: AssignmentRole) => {
     switch (role) {
-      case 'supervisor':
+      case "supervisor":
         return <Crown className="h-4 w-4" />;
-      case 'developer':
+      case "developer":
         return <Code className="h-4 w-4" />;
-      case 'designer':
+      case "designer":
         return <Palette className="h-4 w-4" />;
-      case 'tester':
+      case "tester":
         return <Bug className="h-4 w-4" />;
-      case 'project_manager':
+      case "project_manager":
         return <Briefcase className="h-4 w-4" />;
-      case 'client_contact':
+      case "client_contact":
         return <Phone className="h-4 w-4" />;
       default:
         return <Users className="h-4 w-4" />;
@@ -104,8 +111,8 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
   };
 
   const getAvailableUsers = () => {
-    const assignedUserIds = assignments.map(assignment => assignment.user.id);
-    return users.filter(user => !assignedUserIds.includes(user.id));
+    const assignedUserIds = assignments.map((assignment) => assignment.user.id);
+    return users.filter((user) => !assignedUserIds.includes(user.id));
   };
 
   const groupedAssignments = assignments.reduce((acc, assignment) => {
@@ -147,7 +154,12 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
                   </label>
                   <select
                     value={assignmentData.user_id}
-                    onChange={(e) => setAssignmentData(prev => ({ ...prev, user_id: parseInt(e.target.value) }))}
+                    onChange={(e) =>
+                      setAssignmentData((prev) => ({
+                        ...prev,
+                        user_id: parseInt(e.target.value),
+                      }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     required
                   >
@@ -166,15 +178,22 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
                   </label>
                   <select
                     value={assignmentData.role}
-                    onChange={(e) => setAssignmentData(prev => ({ ...prev, role: e.target.value as AssignmentRole }))}
+                    onChange={(e) =>
+                      setAssignmentData((prev) => ({
+                        ...prev,
+                        role: e.target.value as AssignmentRole,
+                      }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     required
                   >
-                    {Object.entries(ASSIGNMENT_ROLE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
+                    {Object.entries(ASSIGNMENT_ROLE_LABELS).map(
+                      ([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
               </div>
@@ -185,7 +204,12 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
                 </label>
                 <textarea
                   value={assignmentData.notes}
-                  onChange={(e) => setAssignmentData(prev => ({ ...prev, notes: e.target.value }))}
+                  onChange={(e) =>
+                    setAssignmentData((prev) => ({
+                      ...prev,
+                      notes: e.target.value,
+                    }))
+                  }
                   placeholder="Additional notes about this assignment"
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -193,7 +217,10 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
               </div>
 
               <div className="flex space-x-2">
-                <Button type="submit" disabled={isAssigning || !assignmentData.user_id}>
+                <Button
+                  type="submit"
+                  disabled={isAssigning || !assignmentData.user_id}
+                >
                   {isAssigning ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -206,9 +233,9 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
                     </>
                   )}
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setShowAssignForm(false)}
                 >
                   Cancel
@@ -222,66 +249,84 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
           <div className="text-center py-8 text-gray-500">
             <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
             <p>No team members assigned yet</p>
-            <p className="text-sm">Assign developers, designers, testers, and supervisors to the project</p>
+            <p className="text-sm">
+              Assign developers, designers, testers, and supervisors to the
+              project
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {Object.entries(groupedAssignments).map(([role, roleAssignments]) => (
-              <div key={role}>
-                <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                  {getRoleIcon(role as AssignmentRole)}
-                  <span className="ml-2">{ASSIGNMENT_ROLE_LABELS[role as AssignmentRole]}</span>
-                  <span className="ml-2 text-sm text-gray-500">({roleAssignments.length})</span>
-                </h4>
-                <div className="space-y-2 ml-6">
-                  {roleAssignments.map((assignment) => (
-                    <div
-                      key={assignment.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                    >
-                      <div className="flex items-center space-x-3 flex-1">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                            <h5 className="font-medium text-gray-900">
-                              {assignment.user.first_name} {assignment.user.last_name}
-                            </h5>
-                            <span className="text-sm text-gray-500">
-                              ({assignment.user.username})
-                            </span>
-                            <span className={`px-2 py-1 text-xs font-medium rounded ${ASSIGNMENT_ROLE_COLORS[assignment.role]}`}>
-                              {ASSIGNMENT_ROLE_LABELS[assignment.role]}
-                            </span>
+            {Object.entries(groupedAssignments).map(
+              ([role, roleAssignments]) => (
+                <div key={role}>
+                  <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                    {getRoleIcon(role as AssignmentRole)}
+                    <span className="ml-2">
+                      {ASSIGNMENT_ROLE_LABELS[role as AssignmentRole]}
+                    </span>
+                    <span className="ml-2 text-sm text-gray-500">
+                      ({roleAssignments.length})
+                    </span>
+                  </h4>
+                  <div className="space-y-2 ml-6">
+                    {roleAssignments.map((assignment) => (
+                      <div
+                        key={assignment.id}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                      >
+                        <div className="flex items-center space-x-3 flex-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <h5 className="font-medium text-gray-900">
+                                {assignment.user.first_name}{" "}
+                                {assignment.user.last_name}
+                              </h5>
+                              <span className="text-sm text-gray-500">
+                                ({assignment.user.username})
+                              </span>
+                              <span
+                                className={`px-2 py-1 text-xs font-medium rounded ${
+                                  ASSIGNMENT_ROLE_COLORS[assignment.role]
+                                }`}
+                              >
+                                {ASSIGNMENT_ROLE_LABELS[assignment.role]}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
+                              <span>
+                                Assigned by {assignment.assigned_by.first_name}{" "}
+                                {assignment.assigned_by.last_name}
+                              </span>
+                              <span>
+                                on{" "}
+                                {new Date(
+                                  assignment.assigned_date
+                                ).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {assignment.notes && (
+                              <p className="text-sm text-gray-600 mt-1">
+                                {assignment.notes}
+                              </p>
+                            )}
                           </div>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
-                            <span>
-                              Assigned by {assignment.assigned_by.first_name} {assignment.assigned_by.last_name}
-                            </span>
-                            <span>
-                              on {new Date(assignment.assigned_date).toLocaleDateString()}
-                            </span>
-                          </div>
-                          {assignment.notes && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              {assignment.notes}
-                            </p>
-                          )}
+                        </div>
+                        <div className="flex items-center space-x-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRemove(assignment.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 ml-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRemove(assignment.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <UserMinus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
         )}
 
