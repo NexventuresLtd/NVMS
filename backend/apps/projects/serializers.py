@@ -20,11 +20,12 @@ class ProjectTagSerializer(serializers.ModelSerializer):
 
 class ProjectNoteSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
+    mentioned_users = UserSerializer(many=True, read_only=True)
     
     class Meta:
         model = ProjectNote
-        fields = ['id', 'content', 'is_internal', 'author', 'created_at', 'updated_at']
-        read_only_fields = ['author', 'created_at', 'updated_at']
+        fields = ['id', 'content', 'image', 'mentioned_users', 'is_internal', 'author', 'created_at', 'updated_at']
+        read_only_fields = ['author', 'created_at', 'updated_at', 'mentioned_users']
 
 
 class ProjectDocumentSerializer(serializers.ModelSerializer):
@@ -61,7 +62,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
     assigned_to = UserSerializer(read_only=True)
     supervisor = UserSerializer(read_only=True)
     created_by = UserSerializer(read_only=True)
-    tags = ProjectTagSerializer(source='tag_assignments.tag', many=True, read_only=True)
+    tags = ProjectTagSerializer(many=True, read_only=True)
     progress_percentage = serializers.ReadOnlyField()
     is_overdue = serializers.ReadOnlyField()
     document_count = serializers.ReadOnlyField()
@@ -86,7 +87,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     assigned_to = UserSerializer(read_only=True)
     supervisor = UserSerializer(read_only=True)
     created_by = UserSerializer(read_only=True)
-    tags = ProjectTagSerializer(source='tag_assignments.tag', many=True, read_only=True)
+    tags = ProjectTagSerializer(many=True, read_only=True)
     notes = ProjectNoteSerializer(many=True, read_only=True)
     documents = ProjectDocumentSerializer(many=True, read_only=True)
     assignments = ProjectAssignmentSerializer(many=True, read_only=True)
@@ -94,6 +95,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     is_overdue = serializers.ReadOnlyField()
     document_count = serializers.ReadOnlyField()
     team_members = UserSerializer(many=True, read_only=True)
+    can_edit_progress = serializers.SerializerMethodField()
     
     # Write fields for relationships
     assigned_to_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
@@ -110,12 +112,19 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             'id', 'title', 'slug', 'description', 'status', 'priority',
             'start_date', 'due_date', 'completed_date', 'client_name', 'client_email',
             'assigned_to', 'supervisor', 'created_by', 'budget', 'estimated_hours', 'actual_hours',
-            'repository_url', 'live_url', 'staging_url', 'created_at', 'updated_at',
-            'is_active', 'progress_percentage', 'is_overdue', 'tags', 'notes', 'documents',
+            'manual_progress', 'repository_url', 'live_url', 'staging_url', 'created_at', 'updated_at',
+            'is_active', 'progress_percentage', 'is_overdue', 'can_edit_progress', 'tags', 'notes', 'documents',
             'assignments', 'document_count', 'team_members',
             'assigned_to_id', 'supervisor_id', 'tag_ids'
         ]
         read_only_fields = ['slug', 'created_by', 'created_at', 'updated_at']
+    
+    def get_can_edit_progress(self, obj):
+        """Check if current user can edit progress"""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.can_edit_progress(request.user)
     
     def create(self, validated_data):
         tag_ids = validated_data.pop('tag_ids', [])

@@ -7,7 +7,6 @@ import {
   CardTitle,
 } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
-import { Input } from "../../components/ui/Input";
 import {
   ArrowLeft,
   Edit,
@@ -18,7 +17,6 @@ import {
   ExternalLink,
   Github,
   MessageSquare,
-  Plus,
   Award,
   CheckCircle,
   FileText,
@@ -28,12 +26,15 @@ import {
 import projectsApi from "../../services/projectsApi";
 import { ProjectDocuments } from "./ProjectDocuments";
 import { ProjectAssignments } from "./ProjectAssignments";
+import { EnhancedNoteForm } from "../../components/features/EnhancedNoteForm";
+import { NoteDisplay } from "../../components/features/NoteDisplay";
 import type { Project, User as UserType } from "../../types/project";
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
   PROJECT_PRIORITY_COLORS,
 } from "../../types/project";
+import { ProgressSlider } from "./ProgressSlider";
 
 export const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,7 +43,6 @@ export const ProjectDetail: React.FC = () => {
   const [users, setUsers] = useState<UserType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [newNote, setNewNote] = useState("");
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "documents" | "team">(
@@ -72,17 +72,48 @@ export const ProjectDetail: React.FC = () => {
     }
   };
 
-  const handleAddNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!project || !newNote.trim()) return;
+  const handleAddNote = async (noteData: {
+    content: string;
+    image?: File;
+    mentionedUsers: UserType[];
+  }) => {
+    if (!project) return;
 
     try {
       setIsAddingNote(true);
-      await projectsApi.addProjectNote(project.id, newNote.trim());
-      setNewNote("");
+
+      // Create FormData to handle both text and image
+      const formData = new FormData();
+      formData.append("content", noteData.content);
+
+      if (noteData.image) {
+        formData.append("image", noteData.image);
+      }
+
+      if (noteData.mentionedUsers.length > 0) {
+        formData.append(
+          "mentioned_users",
+          JSON.stringify(noteData.mentionedUsers.map((u) => u.id))
+        );
+      }
+
+      // Use fetch directly for FormData upload
+      const response = await fetch(`/api/projects/${project.id}/notes/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add note");
+      }
+
       await loadProject(project.id); // Reload to get updated notes
     } catch (err) {
       console.error("Failed to add note:", err);
+      // You might want to show a toast or error message here
     } finally {
       setIsAddingNote(false);
     }
@@ -136,6 +167,17 @@ export const ProjectDetail: React.FC = () => {
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Not set";
     return new Date(dateString).toLocaleDateString();
+  };
+
+  const handleProgressUpdate = (newProgress: number) => {
+    if (project) {
+      const updatedProject = {
+        ...project,
+        manual_progress: newProgress,
+        progress_percentage: newProgress,
+      };
+      setProject(updatedProject);
+    }
   };
 
   const formatCurrency = (amount?: number) => {
@@ -320,32 +362,17 @@ export const ProjectDetail: React.FC = () => {
                         <span>Overall Progress</span>
                         <span>{project.progress_percentage}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div
-                          className="bg-primary-600 h-3 rounded-full transition-all duration-300"
-                          style={{ width: `${project.progress_percentage}%` }}
-                        ></div>
+                      <div className="w-full rounded-full h-full">
+                        {/* Progress Slider */}
+                        <ProgressSlider
+                          projectId={project.id}
+                          currentProgress={project.progress_percentage}
+                          manualProgress={project.manual_progress}
+                          canEdit={project.can_edit_progress}
+                          onProgressUpdate={handleProgressUpdate}
+                        />
                       </div>
                     </div>
-
-                    {project.estimated_hours && (
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-500">
-                            Estimated Hours:
-                          </span>
-                          <span className="font-medium ml-2">
-                            {project.estimated_hours}h
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Actual Hours:</span>
-                          <span className="font-medium ml-2">
-                            {project.actual_hours}h
-                          </span>
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
 
@@ -407,51 +434,24 @@ export const ProjectDetail: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {/* Add Note Form */}
-                    <form onSubmit={handleAddNote} className="mb-6">
-                      <div className="flex gap-2">
-                        <Input
-                          value={newNote}
-                          onChange={(e) => setNewNote(e.target.value)}
-                          placeholder="Add a note..."
-                          className="flex-1"
-                        />
-                        <Button
-                          type="submit"
-                          disabled={isAddingNote || !newNote.trim()}
-                        >
-                          {isAddingNote ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          ) : (
-                            <Plus className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </form>
+                    {/* Enhanced Note Form */}
+                    <div className="mb-6">
+                      <EnhancedNoteForm
+                        onSubmit={handleAddNote}
+                        users={users}
+                        isSubmitting={isAddingNote}
+                        placeholder="Add a note to this project..."
+                      />
+                    </div>
 
                     {/* Notes List */}
                     <div className="space-y-4">
                       {project.notes.map((note) => (
-                        <div key={note.id} className="border rounded-lg p-4">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <span className="font-medium text-gray-900">
-                                {note.author.first_name} {note.author.last_name}
-                              </span>
-                              <span className="text-sm text-gray-500 ml-2">
-                                {formatDate(note.created_at)}
-                              </span>
-                            </div>
-                            {note.is_internal && (
-                              <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">
-                                Internal
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-gray-700 whitespace-pre-wrap">
-                            {note.content}
-                          </p>
-                        </div>
+                        <NoteDisplay
+                          key={note.id}
+                          note={note}
+                          formatDate={formatDate}
+                        />
                       ))}
 
                       {project.notes.length === 0 && (

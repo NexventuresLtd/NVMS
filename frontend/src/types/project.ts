@@ -17,6 +17,7 @@ export interface Project {
   budget?: number;
   estimated_hours?: number;
   actual_hours: number;
+  manual_progress?: number;
   repository_url?: string;
   live_url?: string;
   staging_url?: string;
@@ -25,6 +26,7 @@ export interface Project {
   is_active: boolean;
   progress_percentage: number;
   is_overdue: boolean;
+  can_edit_progress: boolean;
   tags: ProjectTag[];
   notes: ProjectNote[];
   documents: ProjectDocument[];

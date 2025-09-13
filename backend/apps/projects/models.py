@@ -93,6 +93,11 @@ class Project(models.Model):
     budget = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     estimated_hours = models.PositiveIntegerField(null=True, blank=True)
     actual_hours = models.PositiveIntegerField(default=0)
+    manual_progress = models.PositiveIntegerField(
+        null=True, 
+        blank=True,
+        help_text="Manual progress percentage (0-100). If not set, auto-calculated based on status."
+    )
     
     # URLs
     repository_url = models.URLField(blank=True, validators=[URLValidator()])
@@ -119,7 +124,12 @@ class Project(models.Model):
     
     @property
     def progress_percentage(self):
-        """Calculate progress based on status"""
+        """Calculate progress based on manual progress or status"""
+        # Use manual progress if set
+        if self.manual_progress is not None:
+            return min(max(self.manual_progress, 0), 100)  # Ensure it's between 0-100
+        
+        # Otherwise, auto-calculate based on status
         status_progress = {
             ProjectStatus.PLANNING: 10,
             ProjectStatus.IN_PROGRESS: 50,
@@ -137,6 +147,15 @@ class Project(models.Model):
             return False
         from django.utils import timezone
         return timezone.now().date() > self.due_date and self.status != ProjectStatus.COMPLETED
+    
+    def can_edit_progress(self, user):
+        """Check if user can edit project progress"""
+        return (
+            user == self.supervisor or 
+            user == self.assigned_to or 
+            user == self.created_by or
+            user.is_superuser
+        )
     
     @property
     def can_create_portfolio_entry(self):
@@ -194,6 +213,11 @@ class Project(models.Model):
     def confidential_document_count(self):
         """Get number of confidential documents"""
         return self.documents.filter(is_confidential=True).count()
+    
+    @property
+    def tags(self):
+        """Get all associated tags"""
+        return ProjectTag.objects.filter(projecttagassignment__project=self)
 
 
 class ProjectTag(models.Model):
@@ -217,10 +241,17 @@ class ProjectTagAssignment(models.Model):
         unique_together = ['project', 'tag']
 
 
+def project_note_image_upload_path(instance, filename):
+    """Generate upload path for project note images"""
+    return f'project_notes/{instance.project.id}/images/{filename}'
+
+
 class ProjectNote(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='notes')
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
+    image = models.ImageField(upload_to=project_note_image_upload_path, null=True, blank=True)
+    mentioned_users = models.ManyToManyField(User, related_name='mentioned_in_notes', blank=True)
     is_internal = models.BooleanField(default=True)  # False for client-visible notes
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent } from "../../components/ui/Card";
+import { Card, CardContent, Table } from "../../components/ui";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
-import { Plus, Search, Calendar, User, DollarSign } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Calendar,
+  User,
+  DollarSign,
+  Grid3X3,
+  List,
+} from "lucide-react";
 import projectsApi from "../../services/projectsApi";
 import type { ProjectListItem, ProjectFilters } from "../../types/project";
 import {
@@ -18,6 +26,9 @@ export const ProjectList: React.FC = () => {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<ProjectFilters>({});
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
+  const [sortBy, setSortBy] = useState<string>("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     loadProjects();
@@ -41,6 +52,38 @@ export const ProjectList: React.FC = () => {
     setFilters((prev) => ({ ...prev, search: searchQuery }));
   };
 
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(column);
+      setSortOrder("asc");
+    }
+  };
+
+  const sortedProjects = [...projects].sort((a, b) => {
+    const aValue = a[sortBy as keyof ProjectListItem];
+    const bValue = b[sortBy as keyof ProjectListItem];
+
+    if (aValue === null || aValue === undefined) return 1;
+    if (bValue === null || bValue === undefined) return -1;
+
+    if (typeof aValue === "string" && typeof bValue === "string") {
+      return sortOrder === "asc"
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    }
+
+    if (typeof aValue === "number" && typeof bValue === "number") {
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+    }
+
+    // For dates
+    const aDate = new Date(aValue as string).getTime();
+    const bDate = new Date(bValue as string).getTime();
+    return sortOrder === "asc" ? aDate - bDate : bDate - aDate;
+  });
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Not set";
     return new Date(dateString).toLocaleDateString();
@@ -53,6 +96,104 @@ export const ProjectList: React.FC = () => {
       currency: "USD",
     }).format(amount);
   };
+
+  // Table columns definition
+  const tableColumns = [
+    {
+      key: "title",
+      label: "Project",
+      sortable: true,
+      render: (value: string, row: ProjectListItem) => (
+        <div>
+          <Link
+            to={`/projects/${row.id}`}
+            className="font-medium text-primary-600 hover:text-primary-500"
+          >
+            {value}
+          </Link>
+          <p className="text-sm text-gray-500 truncate max-w-xs">
+            {row.description}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (value: string) => (
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            PROJECT_STATUS_COLORS[value as keyof typeof PROJECT_STATUS_COLORS]
+          }`}
+        >
+          {PROJECT_STATUS_LABELS[value as keyof typeof PROJECT_STATUS_LABELS]}
+        </span>
+      ),
+    },
+    {
+      key: "priority",
+      label: "Priority",
+      sortable: true,
+      render: (value: string) => (
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            PROJECT_PRIORITY_COLORS[
+              value as keyof typeof PROJECT_PRIORITY_COLORS
+            ]
+          }`}
+        >
+          {value.charAt(0).toUpperCase() + value.slice(1)}
+        </span>
+      ),
+    },
+    {
+      key: "progress_percentage",
+      label: "Progress",
+      sortable: true,
+      render: (value: number) => (
+        <div className="flex items-center space-x-2">
+          <div className="w-16 bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-primary-600 h-2 rounded-full"
+              style={{ width: `${value}%` }}
+            />
+          </div>
+          <span className="text-sm text-gray-600">{value}%</span>
+        </div>
+      ),
+    },
+    {
+      key: "assigned_to",
+      label: "Assigned To",
+      sortable: false,
+      render: (value: any) =>
+        value ? `${value.first_name} ${value.last_name}` : "Unassigned",
+    },
+    {
+      key: "due_date",
+      label: "Due Date",
+      sortable: true,
+      render: (value: string, row: ProjectListItem) => (
+        <span className={row.is_overdue ? "text-red-600 font-medium" : ""}>
+          {value ? formatDate(value) : "Not set"}
+          {row.is_overdue && " (Overdue)"}
+        </span>
+      ),
+    },
+    {
+      key: "client_name",
+      label: "Client",
+      sortable: true,
+      render: (value: string) => value || "—",
+    },
+    {
+      key: "budget",
+      label: "Budget",
+      sortable: true,
+      render: (value: number) => (value ? formatCurrency(value) : "—"),
+    },
+  ];
 
   if (isLoading) {
     return (
@@ -98,12 +239,39 @@ export const ProjectList: React.FC = () => {
                 Manage and track all your projects
               </p>
             </div>
-            <Link to="/projects/create">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Project
-              </Button>
-            </Link>
+            <div className="flex items-center space-x-4">
+              {/* View Toggle */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === "grid"
+                      ? "bg-white text-primary-600 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                  title="Grid View"
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("table")}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === "table"
+                      ? "bg-white text-primary-600 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                  title="Table View"
+                >
+                  <List className="h-4 w-4" />
+                </button>
+              </div>
+              <Link to="/projects/create">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Project
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -146,7 +314,9 @@ export const ProjectList: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-        ) : (
+        ) : /* Projects Display */
+        viewMode === "grid" ? (
+          /* Grid View */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
               <Card
@@ -235,7 +405,7 @@ export const ProjectList: React.FC = () => {
                   {/* Tags */}
                   {project.tags && project.tags.length > 0 && (
                     <div className="mt-4 flex flex-wrap gap-1">
-                      {project.tags.slice(0, 3).map((tag) => (
+                      {project.tags.slice(0, 3).map((tag: any) => (
                         <span
                           key={tag.id}
                           className="px-2 py-1 rounded text-xs font-medium"
@@ -269,6 +439,15 @@ export const ProjectList: React.FC = () => {
               </Card>
             ))}
           </div>
+        ) : (
+          /* Table View */
+          <Table
+            data={sortedProjects}
+            columns={tableColumns}
+            onSort={handleSort}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+          />
         )}
       </div>
     </div>

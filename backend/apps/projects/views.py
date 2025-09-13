@@ -56,14 +56,49 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return queryset
     
     @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
     def add_note(self, request, pk=None):
         """Add a note to the project"""
         project = self.get_object()
-        serializer = ProjectNoteSerializer(data=request.data)
+        
+        # Extract mentioned user IDs from JSON string if provided
+        mentioned_user_ids = []
+        if 'mentioned_users' in request.data:
+            try:
+                import json
+                mentioned_user_ids = json.loads(request.data['mentioned_users'])
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        # Create the note
+        note_data = {
+            'content': request.data.get('content', ''),
+            'is_internal': request.data.get('is_internal', True)
+        }
+        
+        serializer = ProjectNoteSerializer(data=note_data)
         
         if serializer.is_valid():
-            serializer.save(project=project, author=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            note = serializer.save(project=project, author=request.user)
+            
+            # Handle image upload
+            if 'image' in request.FILES:
+                note.image = request.FILES['image']
+                note.save()
+            
+            # Add mentioned users
+            if mentioned_user_ids:
+                # Validate that all user IDs exist
+                valid_users = User.objects.filter(id__in=mentioned_user_ids)
+                note.mentioned_users.set(valid_users)
+                
+                # TODO: Create notifications for mentioned users
+                # This could be implemented later with a notification system
+            
+            # Return the updated note with all relationships
+            response_serializer = ProjectNoteSerializer(note)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
@@ -154,6 +189,56 @@ class ProjectViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(project)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['patch'])
+    def update_progress(self, request, pk=None):
+        """Update project progress - only for supervisors and assigned users"""
+        project = self.get_object()
+        
+        # Check if user can edit progress
+        if not project.can_edit_progress(request.user):
+            return Response(
+                {'error': 'You do not have permission to update project progress'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        progress = request.data.get('progress')
+        if progress is None:
+            return Response(
+                {'error': 'Progress value is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            progress = int(progress)
+            if progress < 0 or progress > 100:
+                return Response(
+                    {'error': 'Progress must be between 0 and 100'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'Progress must be a valid integer'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        project.manual_progress = progress
+        
+        # Auto-set completion date if progress is 100% and not already completed
+        if progress == 100 and project.status != 'completed':
+            from django.utils import timezone
+            project.completed_date = timezone.now().date()
+            if project.status not in ['completed', 'cancelled']:
+                project.status = 'completed'
+        
+        project.save()
+        
+        serializer = self.get_serializer(project)
+        return Response({
+            'message': 'Progress updated successfully',
+            'progress': project.progress_percentage,
+            'manual_progress': project.manual_progress
+        })
     
     @action(detail=False)
     def my_projects(self, request):

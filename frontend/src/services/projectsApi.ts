@@ -156,6 +156,12 @@ class ProjectsApi {
     const response = await api.patch(`/projects/${projectId}/assignments/${assignmentId}/`, data);
     return response.data;
   }
+
+  // Project progress
+  async updateProgress(projectId: string, progress: number): Promise<{ message: string; progress: number; manual_progress: number }> {
+    const response = await api.patch(`/projects/${projectId}/update_progress/`, { progress });
+    return response.data;
+  }
 }
 
 export default new ProjectsApi();
