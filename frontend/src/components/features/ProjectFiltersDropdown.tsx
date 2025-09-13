@@ -3,10 +3,6 @@ import { Filter, ChevronDown, X } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import type { ProjectFilters } from "../../types/project";
-import {
-  PROJECT_STATUS_LABELS,
-  PROJECT_PRIORITY_LABELS,
-} from "../../types/project";
 
 interface User {
   id: number;
@@ -35,7 +31,10 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -55,9 +54,9 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
   };
 
   const handleTempFilterChange = (key: keyof ProjectFilters, value: any) => {
-    setTempFilters(prev => ({
+    setTempFilters((prev) => ({
       ...prev,
-      [key]: value
+      [key]: value,
     }));
   };
 
@@ -69,9 +68,10 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
 
   // Count active filters
   const activeFiltersCount = Object.keys(filters).filter(
-    key => filters[key as keyof ProjectFilters] !== undefined && 
-           filters[key as keyof ProjectFilters] !== "" && 
-           filters[key as keyof ProjectFilters] !== null
+    (key) =>
+      filters[key as keyof ProjectFilters] !== undefined &&
+      filters[key as keyof ProjectFilters] !== "" &&
+      filters[key as keyof ProjectFilters] !== null
   ).length;
 
   return (
@@ -79,7 +79,9 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
       <Button
         variant="outline"
         onClick={() => setIsOpen(!isOpen)}
-        className={`relative ${activeFiltersCount > 0 ? 'border-primary-500 text-primary-700' : ''}`}
+        className={`relative ${
+          activeFiltersCount > 0 ? "border-primary-500 text-primary-700" : ""
+        }`}
       >
         <Filter className="h-4 w-4 mr-2" />
         Filters
@@ -95,7 +97,9 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-900">Filter Projects</h3>
+              <h3 className="text-sm font-medium text-gray-900">
+                Filter Projects
+              </h3>
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -113,11 +117,20 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
               </label>
               <select
                 value={tempFilters.status || ""}
-                onChange={(e) => handleTempFilterChange("status", e.target.value || undefined)}
+                onChange={(e) =>
+                  handleTempFilterChange("status", e.target.value || undefined)
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">All Statuses</option>
-                {Object.entries(PROJECT_STATUS_LABELS).map(([key, label]) => (
+                {[
+                  { key: "planning", label: "Planning" },
+                  { key: "in_progress", label: "In Progress" },
+                  { key: "review", label: "Under Review" },
+                  { key: "on_hold", label: "On Hold" },
+                  { key: "completed", label: "Completed" },
+                  { key: "cancelled", label: "Cancelled" },
+                ].map(({ key, label }) => (
                   <option key={key} value={key}>
                     {label}
                   </option>
@@ -132,11 +145,20 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
               </label>
               <select
                 value={tempFilters.priority || ""}
-                onChange={(e) => handleTempFilterChange("priority", e.target.value || undefined)}
+                onChange={(e) =>
+                  handleTempFilterChange(
+                    "priority",
+                    e.target.value || undefined
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">All Priorities</option>
-                {Object.entries(PROJECT_PRIORITY_LABELS).map(([key, label]) => (
+                {[
+                  { key: "high", label: "High" },
+                  { key: "medium", label: "Medium" },
+                  { key: "low", label: "Low" },
+                ].map(({ key, label }) => (
                   <option key={key} value={key}>
                     {label}
                   </option>
@@ -151,7 +173,12 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
               </label>
               <select
                 value={tempFilters.assigned_to || ""}
-                onChange={(e) => handleTempFilterChange("assigned_to", e.target.value || undefined)}
+                onChange={(e) =>
+                  handleTempFilterChange(
+                    "assigned_to",
+                    e.target.value || undefined
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">All Users</option>
@@ -172,7 +199,12 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
               <Input
                 placeholder="Filter by client..."
                 value={tempFilters.client_name || ""}
-                onChange={(e) => handleTempFilterChange("client_name", e.target.value || undefined)}
+                onChange={(e) =>
+                  handleTempFilterChange(
+                    "client_name",
+                    e.target.value || undefined
+                  )
+                }
               />
             </div>
 
@@ -185,7 +217,12 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
                 <Input
                   type="date"
                   value={tempFilters.due_after || ""}
-                  onChange={(e) => handleTempFilterChange("due_after", e.target.value || undefined)}
+                  onChange={(e) =>
+                    handleTempFilterChange(
+                      "due_after",
+                      e.target.value || undefined
+                    )
+                  }
                 />
               </div>
               <div>
@@ -195,7 +232,12 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
                 <Input
                   type="date"
                   value={tempFilters.due_before || ""}
-                  onChange={(e) => handleTempFilterChange("due_before", e.target.value || undefined)}
+                  onChange={(e) =>
+                    handleTempFilterChange(
+                      "due_before",
+                      e.target.value || undefined
+                    )
+                  }
                 />
               </div>
             </div>
@@ -206,10 +248,18 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
                 id="overdue-filter"
                 type="checkbox"
                 checked={tempFilters.is_overdue || false}
-                onChange={(e) => handleTempFilterChange("is_overdue", e.target.checked || undefined)}
+                onChange={(e) =>
+                  handleTempFilterChange(
+                    "is_overdue",
+                    e.target.checked || undefined
+                  )
+                }
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               />
-              <label htmlFor="overdue-filter" className="ml-2 text-sm text-gray-700">
+              <label
+                htmlFor="overdue-filter"
+                className="ml-2 text-sm text-gray-700"
+              >
                 Show only overdue projects
               </label>
             </div>
@@ -226,7 +276,12 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
                   min="0"
                   max="100"
                   value={tempFilters.progress_min || ""}
-                  onChange={(e) => handleTempFilterChange("progress_min", e.target.value ? parseInt(e.target.value) : undefined)}
+                  onChange={(e) =>
+                    handleTempFilterChange(
+                      "progress_min",
+                      e.target.value ? parseInt(e.target.value) : undefined
+                    )
+                  }
                 />
                 <Input
                   type="number"
@@ -234,7 +289,12 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
                   min="0"
                   max="100"
                   value={tempFilters.progress_max || ""}
-                  onChange={(e) => handleTempFilterChange("progress_max", e.target.value ? parseInt(e.target.value) : undefined)}
+                  onChange={(e) =>
+                    handleTempFilterChange(
+                      "progress_max",
+                      e.target.value ? parseInt(e.target.value) : undefined
+                    )
+                  }
                 />
               </div>
             </div>
@@ -242,11 +302,7 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
 
           {/* Footer */}
           <div className="p-4 border-t border-gray-200 flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearAll}
-            >
+            <Button variant="ghost" size="sm" onClick={handleClearAll}>
               Clear All
             </Button>
             <div className="space-x-2">
@@ -257,10 +313,7 @@ export const ProjectFiltersDropdown: React.FC<ProjectFiltersDropdownProps> = ({
               >
                 Cancel
               </Button>
-              <Button
-                size="sm"
-                onClick={handleApplyFilters}
-              >
+              <Button size="sm" onClick={handleApplyFilters}>
                 Apply Filters
               </Button>
             </div>

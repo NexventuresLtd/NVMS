@@ -98,12 +98,6 @@ export const Login: React.FC = () => {
                 Sign in
               </Button>
             </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-500">
-                Demo credentials: Any username/password combination will work
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>

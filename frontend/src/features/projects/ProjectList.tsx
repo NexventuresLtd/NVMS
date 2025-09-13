@@ -77,12 +77,41 @@ export const ProjectList: React.FC = () => {
     }
   };
 
+  // Define custom sort orders for priority and status
+  const priorityOrder = { high: 0, medium: 1, low: 2 };
+  const statusOrder = {
+    planning: 0,
+    in_progress: 1,
+    review: 2,
+    on_hold: 3,
+    completed: 4,
+    cancelled: 5,
+  };
+
   const sortedProjects = [...projects].sort((a, b) => {
     const aValue = a[sortBy as keyof ProjectListItem];
     const bValue = b[sortBy as keyof ProjectListItem];
 
     if (aValue === null || aValue === undefined) return 1;
     if (bValue === null || bValue === undefined) return -1;
+
+    // Special handling for priority
+    if (sortBy === "priority") {
+      const aPriority =
+        priorityOrder[aValue as keyof typeof priorityOrder] ?? 999;
+      const bPriority =
+        priorityOrder[bValue as keyof typeof priorityOrder] ?? 999;
+      return sortOrder === "asc"
+        ? aPriority - bPriority
+        : bPriority - aPriority;
+    }
+
+    // Special handling for status
+    if (sortBy === "status") {
+      const aStatus = statusOrder[aValue as keyof typeof statusOrder] ?? 999;
+      const bStatus = statusOrder[bValue as keyof typeof statusOrder] ?? 999;
+      return sortOrder === "asc" ? aStatus - bStatus : bStatus - aStatus;
+    }
 
     if (typeof aValue === "string" && typeof bValue === "string") {
       return sortOrder === "asc"
@@ -306,7 +335,7 @@ export const ProjectList: React.FC = () => {
                 </div>
                 <Button type="submit">Search</Button>
               </form>
-              
+
               {/* Filters Dropdown */}
               <ProjectFiltersDropdown
                 filters={filters}
@@ -320,13 +349,17 @@ export const ProjectList: React.FC = () => {
             {Object.keys(filters).length > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-gray-700">Active filters:</span>
-                  
+                  <span className="text-sm font-medium text-gray-700">
+                    Active filters:
+                  </span>
+
                   {filters.status && (
                     <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
                       Status: {PROJECT_STATUS_LABELS[filters.status]}
                       <button
-                        onClick={() => handleFiltersChange({ ...filters, status: undefined })}
+                        onClick={() =>
+                          handleFiltersChange({ ...filters, status: undefined })
+                        }
                         className="ml-1 text-blue-600 hover:text-blue-800"
                       >
                         <X className="h-3 w-3" />
@@ -336,9 +369,16 @@ export const ProjectList: React.FC = () => {
 
                   {filters.priority && (
                     <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-orange-100 text-orange-800">
-                      Priority: {filters.priority.charAt(0).toUpperCase() + filters.priority.slice(1)}
+                      Priority:{" "}
+                      {filters.priority.charAt(0).toUpperCase() +
+                        filters.priority.slice(1)}
                       <button
-                        onClick={() => handleFiltersChange({ ...filters, priority: undefined })}
+                        onClick={() =>
+                          handleFiltersChange({
+                            ...filters,
+                            priority: undefined,
+                          })
+                        }
                         className="ml-1 text-orange-600 hover:text-orange-800"
                       >
                         <X className="h-3 w-3" />
@@ -348,11 +388,27 @@ export const ProjectList: React.FC = () => {
 
                   {filters.assigned_to && (
                     <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800">
-                      Assigned: {filters.assigned_to === "unassigned" ? "Unassigned" : 
-                        users.find(u => u.id.toString() === filters.assigned_to?.toString())?.first_name + " " +
-                        users.find(u => u.id.toString() === filters.assigned_to?.toString())?.last_name}
+                      Assigned:{" "}
+                      {filters.assigned_to === "unassigned"
+                        ? "Unassigned"
+                        : users.find(
+                            (u) =>
+                              u.id.toString() ===
+                              filters.assigned_to?.toString()
+                          )?.first_name +
+                          " " +
+                          users.find(
+                            (u) =>
+                              u.id.toString() ===
+                              filters.assigned_to?.toString()
+                          )?.last_name}
                       <button
-                        onClick={() => handleFiltersChange({ ...filters, assigned_to: undefined })}
+                        onClick={() =>
+                          handleFiltersChange({
+                            ...filters,
+                            assigned_to: undefined,
+                          })
+                        }
                         className="ml-1 text-green-600 hover:text-green-800"
                       >
                         <X className="h-3 w-3" />
@@ -364,7 +420,12 @@ export const ProjectList: React.FC = () => {
                     <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">
                       Overdue Only
                       <button
-                        onClick={() => handleFiltersChange({ ...filters, is_overdue: undefined })}
+                        onClick={() =>
+                          handleFiltersChange({
+                            ...filters,
+                            is_overdue: undefined,
+                          })
+                        }
                         className="ml-1 text-red-600 hover:text-red-800"
                       >
                         <X className="h-3 w-3" />
@@ -376,7 +437,12 @@ export const ProjectList: React.FC = () => {
                     <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
                       Client: {filters.client_name}
                       <button
-                        onClick={() => handleFiltersChange({ ...filters, client_name: undefined })}
+                        onClick={() =>
+                          handleFiltersChange({
+                            ...filters,
+                            client_name: undefined,
+                          })
+                        }
                         className="ml-1 text-purple-600 hover:text-purple-800"
                       >
                         <X className="h-3 w-3" />
@@ -386,11 +452,18 @@ export const ProjectList: React.FC = () => {
 
                   {(filters.due_after || filters.due_before) && (
                     <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800">
-                      Due Date: {filters.due_after && `After ${filters.due_after}`}
+                      Due Date:{" "}
+                      {filters.due_after && `After ${filters.due_after}`}
                       {filters.due_after && filters.due_before && " & "}
                       {filters.due_before && `Before ${filters.due_before}`}
                       <button
-                        onClick={() => handleFiltersChange({ ...filters, due_after: undefined, due_before: undefined })}
+                        onClick={() =>
+                          handleFiltersChange({
+                            ...filters,
+                            due_after: undefined,
+                            due_before: undefined,
+                          })
+                        }
                         className="ml-1 text-indigo-600 hover:text-indigo-800"
                       >
                         <X className="h-3 w-3" />
@@ -398,11 +471,19 @@ export const ProjectList: React.FC = () => {
                     </span>
                   )}
 
-                  {(filters.progress_min !== undefined || filters.progress_max !== undefined) && (
+                  {(filters.progress_min !== undefined ||
+                    filters.progress_max !== undefined) && (
                     <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-teal-100 text-teal-800">
-                      Progress: {filters.progress_min ?? 0}%-{filters.progress_max ?? 100}%
+                      Progress: {filters.progress_min ?? 0}%-
+                      {filters.progress_max ?? 100}%
                       <button
-                        onClick={() => handleFiltersChange({ ...filters, progress_min: undefined, progress_max: undefined })}
+                        onClick={() =>
+                          handleFiltersChange({
+                            ...filters,
+                            progress_min: undefined,
+                            progress_max: undefined,
+                          })
+                        }
                         className="ml-1 text-teal-600 hover:text-teal-800"
                       >
                         <X className="h-3 w-3" />
