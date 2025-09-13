@@ -82,9 +82,14 @@ export interface ProjectCreateData {
 export interface ProjectFilters {
   status?: ProjectStatus;
   priority?: ProjectPriority;
-  assigned_to?: number;
+  assigned_to?: number | string;
   is_overdue?: boolean;
   search?: string;
+  client_name?: string;
+  due_after?: string;
+  due_before?: string;
+  progress_min?: number;
+  progress_max?: number;
 }
 
 export interface ProjectStats {

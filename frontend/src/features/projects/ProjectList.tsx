@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, Table } from "../../components/ui";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { ProjectFiltersDropdown } from "../../components/features/ProjectFiltersDropdown";
 import {
   Plus,
   Search,
@@ -11,6 +12,7 @@ import {
   DollarSign,
   Grid3X3,
   List,
+  X,
 } from "lucide-react";
 import projectsApi from "../../services/projectsApi";
 import type { ProjectListItem, ProjectFilters } from "../../types/project";
@@ -22,6 +24,7 @@ import {
 
 export const ProjectList: React.FC = () => {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -31,16 +34,20 @@ export const ProjectList: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
-    loadProjects();
+    loadProjectsAndUsers();
   }, [filters]);
 
-  const loadProjects = async () => {
+  const loadProjectsAndUsers = async () => {
     try {
       setIsLoading(true);
-      const response = await projectsApi.getProjects(filters);
-      setProjects(response.results || []);
+      const [projectsResponse, usersResponse] = await Promise.all([
+        projectsApi.getProjects(filters),
+        projectsApi.getUsers(),
+      ]);
+      setProjects(projectsResponse.results || []);
+      setUsers(usersResponse || []);
     } catch (err) {
-      console.error("Failed to load projects:", err);
+      console.error("Failed to load data:", err);
       setError("Failed to load projects");
     } finally {
       setIsLoading(false);
@@ -50,6 +57,15 @@ export const ProjectList: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setFilters((prev) => ({ ...prev, search: searchQuery }));
+  };
+
+  const handleFiltersChange = (newFilters: ProjectFilters) => {
+    setFilters(newFilters);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({});
+    setSearchQuery("");
   };
 
   const handleSort = (column: string) => {
@@ -216,7 +232,7 @@ export const ProjectList: React.FC = () => {
             <CardContent>
               <div className="text-center py-12">
                 <p className="text-red-600">{error}</p>
-                <Button onClick={loadProjects} className="mt-4">
+                <Button onClick={loadProjectsAndUsers} className="mt-4">
                   Try Again
                 </Button>
               </div>
@@ -278,17 +294,131 @@ export const ProjectList: React.FC = () => {
         {/* Search and Filters */}
         <Card className="mb-8">
           <CardContent>
-            <form onSubmit={handleSearch} className="flex gap-4">
-              <div className="flex-1">
-                <Input
-                  placeholder="Search projects by title, description, or client..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  startIcon={<Search className="h-4 w-4 text-gray-400" />}
-                />
+            <div className="flex gap-4 items-start">
+              <form onSubmit={handleSearch} className="flex gap-4 flex-1">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search projects by title, description, or client..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    startIcon={<Search className="h-4 w-4 text-gray-400" />}
+                  />
+                </div>
+                <Button type="submit">Search</Button>
+              </form>
+              
+              {/* Filters Dropdown */}
+              <ProjectFiltersDropdown
+                filters={filters}
+                onFiltersChange={handleFiltersChange}
+                users={users}
+                onClearFilters={handleClearFilters}
+              />
+            </div>
+
+            {/* Active Filters Display */}
+            {Object.keys(filters).length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-gray-700">Active filters:</span>
+                  
+                  {filters.status && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                      Status: {PROJECT_STATUS_LABELS[filters.status]}
+                      <button
+                        onClick={() => handleFiltersChange({ ...filters, status: undefined })}
+                        className="ml-1 text-blue-600 hover:text-blue-800"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {filters.priority && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-orange-100 text-orange-800">
+                      Priority: {filters.priority.charAt(0).toUpperCase() + filters.priority.slice(1)}
+                      <button
+                        onClick={() => handleFiltersChange({ ...filters, priority: undefined })}
+                        className="ml-1 text-orange-600 hover:text-orange-800"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {filters.assigned_to && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800">
+                      Assigned: {filters.assigned_to === "unassigned" ? "Unassigned" : 
+                        users.find(u => u.id.toString() === filters.assigned_to?.toString())?.first_name + " " +
+                        users.find(u => u.id.toString() === filters.assigned_to?.toString())?.last_name}
+                      <button
+                        onClick={() => handleFiltersChange({ ...filters, assigned_to: undefined })}
+                        className="ml-1 text-green-600 hover:text-green-800"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {filters.is_overdue && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">
+                      Overdue Only
+                      <button
+                        onClick={() => handleFiltersChange({ ...filters, is_overdue: undefined })}
+                        className="ml-1 text-red-600 hover:text-red-800"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {filters.client_name && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
+                      Client: {filters.client_name}
+                      <button
+                        onClick={() => handleFiltersChange({ ...filters, client_name: undefined })}
+                        className="ml-1 text-purple-600 hover:text-purple-800"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {(filters.due_after || filters.due_before) && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800">
+                      Due Date: {filters.due_after && `After ${filters.due_after}`}
+                      {filters.due_after && filters.due_before && " & "}
+                      {filters.due_before && `Before ${filters.due_before}`}
+                      <button
+                        onClick={() => handleFiltersChange({ ...filters, due_after: undefined, due_before: undefined })}
+                        className="ml-1 text-indigo-600 hover:text-indigo-800"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {(filters.progress_min !== undefined || filters.progress_max !== undefined) && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-teal-100 text-teal-800">
+                      Progress: {filters.progress_min ?? 0}%-{filters.progress_max ?? 100}%
+                      <button
+                        onClick={() => handleFiltersChange({ ...filters, progress_min: undefined, progress_max: undefined })}
+                        className="ml-1 text-teal-600 hover:text-teal-800"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  <button
+                    onClick={handleClearFilters}
+                    className="text-sm text-gray-500 hover:text-gray-700 underline"
+                  >
+                    Clear all filters
+                  </button>
+                </div>
               </div>
-              <Button type="submit">Search</Button>
-            </form>
+            )}
           </CardContent>
         </Card>
 
