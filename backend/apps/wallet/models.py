@@ -40,7 +40,7 @@ class Wallet(models.Model):
         ('other', 'Other'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wallets')
+    # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wallets')
     name = models.CharField(max_length=100)
     wallet_type = models.CharField(max_length=20, choices=WALLET_TYPES, default='current')
     currency = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name='wallets')
@@ -57,7 +57,6 @@ class Wallet(models.Model):
 
     class Meta:
         ordering = ['-is_active', 'name']
-        unique_together = ['user', 'name']
 
     def __str__(self):
         return f"{self.name} ({self.get_wallet_type_display()}) - {self.currency.symbol}{self.balance}"
@@ -139,7 +138,7 @@ class Income(models.Model):
         ('yearly', 'Yearly'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incomes')
+    # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incomes')
     wallet = models.ForeignKey(Wallet, on_delete=models.PROTECT, related_name='incomes')
     project = models.ForeignKey(
         'projects.Project', 
@@ -245,7 +244,7 @@ class Expense(models.Model):
         ('yearly', 'Yearly'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
+    # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
     wallet = models.ForeignKey(Wallet, on_delete=models.PROTECT, related_name='expenses')
     project = models.ForeignKey(
         'projects.Project', 
@@ -354,7 +353,7 @@ class Subscription(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subscriptions')
+    # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subscriptions')
     wallet = models.ForeignKey(Wallet, on_delete=models.PROTECT, related_name='subscriptions')
     
     name = models.CharField(max_length=200)
@@ -452,7 +451,7 @@ class Budget(models.Model):
         ('category', 'Category Budget'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='budgets')
+    # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='budgets')
     name = models.CharField(max_length=200)
     budget_type = models.CharField(max_length=20, choices=BUDGET_TYPES)
     
@@ -505,7 +504,7 @@ class Budget(models.Model):
     def spent_amount(self):
         """Calculate total spent against this budget"""
         expenses = Expense.objects.filter(
-            user=self.user,
+            # user=self.user,
             date__gte=self.start_date,
             date__lte=self.end_date
         )
@@ -549,7 +548,7 @@ class SavingsGoal(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='savings_goals')
+    # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='savings_goals')
     wallet = models.ForeignKey(Wallet, on_delete=models.PROTECT, related_name='savings_goals')
     
     name = models.CharField(max_length=200)

@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from django.db.models import Sum, Q, F
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -43,10 +44,7 @@ class WalletViewSet(viewsets.ModelViewSet):
     ordering_fields = ['name', 'balance', 'created_at']
 
     def get_queryset(self):
-        return Wallet.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        return Wallet.objects.all()
 
     @action(detail=True, methods=['post'])
     def transfer(self, request, pk=None):
@@ -62,7 +60,7 @@ class WalletViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            target_wallet = Wallet.objects.get(id=target_wallet_id, user=request.user)
+            target_wallet = Wallet.objects.get(id=target_wallet_id)
         except Wallet.DoesNotExist:
             return Response(
                 {'error': 'Target wallet not found'},
@@ -162,7 +160,7 @@ class IncomeViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date', 'amount', 'created_at']
 
     def get_queryset(self):
-        queryset = Income.objects.filter(user=self.request.user)
+        queryset = Income.objects.all()
         
         # Filter by date range
         start_date = self.request.query_params.get('start_date')
@@ -175,8 +173,8 @@ class IncomeViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user, created_by=self.request.user)
-        
+        serializer.save(created_by=self.request.user)
+
         # Log creation
         income = serializer.instance
         TransactionHistory.objects.create(
@@ -221,7 +219,6 @@ class IncomeViewSet(viewsets.ModelViewSet):
         """Process all due recurring incomes"""
         today = timezone.now().date()
         due_incomes = Income.objects.filter(
-            user=request.user,
             is_recurring=True,
             next_occurrence__lte=today
         )
@@ -230,7 +227,6 @@ class IncomeViewSet(viewsets.ModelViewSet):
         for income in due_incomes:
             # Create new income for this occurrence
             Income.objects.create(
-                user=income.user,
                 wallet=income.wallet,
                 project=income.project,
                 title=f"{income.title} (Recurring)",
@@ -239,7 +235,7 @@ class IncomeViewSet(viewsets.ModelViewSet):
                 description=income.description,
                 date=income.next_occurrence,
                 is_recurring=False,
-                created_by=income.user
+                created_by=income.created_by
             )
             created_count += 1
             
@@ -249,6 +245,29 @@ class IncomeViewSet(viewsets.ModelViewSet):
         return Response({
             'message': f'Processed {created_count} recurring incomes',
             'count': created_count
+        })
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get income statistics"""
+        today = timezone.now().date()
+        incomes = self.get_queryset()
+        
+        total = incomes.aggregate(total=Sum('amount'))['total'] or 0
+        this_month = incomes.filter(
+            date__year=today.year,
+            date__month=today.month
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        this_year = incomes.filter(
+            date__year=today.year
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        count = incomes.count()
+        
+        return Response({
+            'total': str(total),
+            'this_month': str(this_month),
+            'this_year': str(this_year),
+            'count': count
         })
 
 
@@ -262,7 +281,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date', 'amount', 'created_at']
 
     def get_queryset(self):
-        queryset = Expense.objects.filter(user=self.request.user)
+        queryset = Expense.objects.all()
         
         # Filter by date range
         start_date = self.request.query_params.get('start_date')
@@ -275,7 +294,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user, created_by=self.request.user)
+        serializer.save(created_by=self.request.user)
         
         # Log creation
         expense = serializer.instance
@@ -321,7 +340,6 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         """Process all due recurring expenses"""
         today = timezone.now().date()
         due_expenses = Expense.objects.filter(
-            user=request.user,
             is_recurring=True,
             next_occurrence__lte=today
         )
@@ -330,7 +348,6 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         for expense in due_expenses:
             # Create new expense for this occurrence
             Expense.objects.create(
-                user=expense.user,
                 wallet=expense.wallet,
                 project=expense.project,
                 title=f"{expense.title} (Recurring)",
@@ -351,6 +368,29 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             'count': created_count
         })
 
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get expense statistics"""
+        today = timezone.now().date()
+        expenses = self.get_queryset()
+        
+        total = expenses.aggregate(total=Sum('amount'))['total'] or 0
+        this_month = expenses.filter(
+            date__year=today.year,
+            date__month=today.month
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        this_year = expenses.filter(
+            date__year=today.year
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        count = expenses.count()
+        
+        return Response({
+            'total': str(total),
+            'this_month': str(this_month),
+            'this_year': str(this_year),
+            'count': count
+        })
+
 
 class SubscriptionViewSet(viewsets.ModelViewSet):
     """Subscription management"""
@@ -362,10 +402,10 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     ordering_fields = ['next_billing_date', 'amount', 'name']
 
     def get_queryset(self):
-        return Subscription.objects.filter(user=self.request.user)
+        return Subscription.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer.save()
 
     @action(detail=True, methods=['post'])
     def renew(self, request, pk=None):
@@ -433,6 +473,30 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
             'errors': errors
         })
 
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get subscription statistics"""
+        subscriptions = self.get_queryset()
+        active_subscriptions = subscriptions.filter(is_active=True)
+        
+        # Calculate monthly cost (converting all billing cycles to monthly equivalent)
+        total_monthly_cost = Decimal('0')
+        for sub in active_subscriptions:
+            if sub.billing_cycle == 'monthly':
+                total_monthly_cost += Decimal(sub.amount)
+            elif sub.billing_cycle == 'yearly':
+                total_monthly_cost += Decimal(sub.amount) / 12
+            elif sub.billing_cycle == 'weekly':
+                total_monthly_cost += Decimal(sub.amount) * 4
+            elif sub.billing_cycle == 'daily':
+                total_monthly_cost += Decimal(sub.amount) * 30
+        
+        return Response({
+            'total_monthly_cost': str(total_monthly_cost),
+            'active_count': active_subscriptions.count(),
+            'total_count': subscriptions.count()
+        })
+
 
 class BudgetViewSet(viewsets.ModelViewSet):
     """Budget management"""
@@ -444,10 +508,10 @@ class BudgetViewSet(viewsets.ModelViewSet):
     ordering_fields = ['start_date', 'amount', 'name']
 
     def get_queryset(self):
-        return Budget.objects.filter(user=self.request.user)
+        return Budget.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer.save()
 
     @action(detail=False, methods=['get'])
     def active(self, request):
@@ -481,6 +545,37 @@ class BudgetViewSet(viewsets.ModelViewSet):
         
         return Response(alerts)
 
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get budget statistics"""
+        today = timezone.now().date()
+        budgets = self.get_queryset().filter(
+            is_active=True,
+            start_date__lte=today
+        )
+        
+        # Filter to active budgets within their date range
+        active_budgets = budgets.filter(
+            Q(end_date__isnull=True) | Q(end_date__gte=today)
+        )
+        
+        total_budgeted = active_budgets.aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Calculate total spent - sum up the spent field from each budget
+        total_spent = Decimal('0')
+        for budget in active_budgets:
+            if hasattr(budget, 'spent') and budget.spent:
+                total_spent += Decimal(budget.spent)
+        
+        total_remaining = total_budgeted - total_spent
+        
+        return Response({
+            'total_budgeted': str(total_budgeted),
+            'total_spent': str(total_spent),
+            'total_remaining': str(total_remaining),
+            'active_count': active_budgets.count()
+        })
+
 
 class SavingsGoalViewSet(viewsets.ModelViewSet):
     """Savings goal management"""
@@ -492,10 +587,10 @@ class SavingsGoalViewSet(viewsets.ModelViewSet):
     ordering_fields = ['target_date', 'target_amount', 'created_at']
 
     def get_queryset(self):
-        return SavingsGoal.objects.filter(user=self.request.user)
+        return SavingsGoal.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer.save()
 
     @action(detail=True, methods=['post'])
     def contribute(self, request, pk=None):
@@ -515,6 +610,28 @@ class SavingsGoalViewSet(viewsets.ModelViewSet):
         return Response({
             'message': 'Contribution added successfully',
             'goal': serializer.data
+        })
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get savings goal statistics"""
+        goals = self.get_queryset()
+        active_goals = goals.filter(is_achieved=False)
+        
+        total_target = goals.aggregate(total=Sum('target_amount'))['total'] or 0
+        total_saved = goals.aggregate(total=Sum('current_amount'))['total'] or 0
+        
+        # Calculate completion percentage
+        if total_target > 0:
+            completion_percentage = (Decimal(total_saved) / Decimal(total_target)) * 100
+        else:
+            completion_percentage = 0
+        
+        return Response({
+            'total_target': str(total_target),
+            'total_saved': str(total_saved),
+            'completion_percentage': str(round(completion_percentage, 1)),
+            'active_count': active_goals.count()
         })
 
 
@@ -542,12 +659,12 @@ class AnalyticsViewSet(viewsets.ViewSet):
         
         # Get incomes and expenses for the month
         incomes = Income.objects.filter(
-            user=request.user,
+            # user=request.user,
             date__year=year,
             date__month=month
         )
         expenses = Expense.objects.filter(
-            user=request.user,
+            # user=request.user,
             date__year=year,
             date__month=month
         )
@@ -626,13 +743,13 @@ class AnalyticsViewSet(viewsets.ViewSet):
         
         # Get all transactions in date range
         incomes = Income.objects.filter(
-            user=request.user,
+            # user=request.user,
             date__gte=start_date,
             date__lte=end_date
         ).values('date').annotate(total=Sum('amount'))
         
         expenses = Expense.objects.filter(
-            user=request.user,
+            # user=request.user,
             date__gte=start_date,
             date__lte=end_date
         ).values('date').annotate(total=Sum('amount'))
@@ -668,26 +785,25 @@ class AnalyticsViewSet(viewsets.ViewSet):
         
         # Current month stats
         current_month_income = Income.objects.filter(
-            user=request.user,
+            # user=request.user,
             date__year=today.year,
             date__month=today.month
         ).aggregate(total=Sum('amount'))['total'] or 0
         
         current_month_expense = Expense.objects.filter(
-            user=request.user,
+            # user=request.user,
             date__year=today.year,
             date__month=today.month
         ).aggregate(total=Sum('amount'))['total'] or 0
         
         # Total wallet balance
         total_balance = Wallet.objects.filter(
-            user=request.user,
             is_active=True
         ).aggregate(total=Sum('balance'))['total'] or 0
         
         # Active budgets
         active_budgets = Budget.objects.filter(
-            user=request.user,
+            # user=request.user,
             is_active=True,
             start_date__lte=today,
             end_date__gte=today
@@ -695,13 +811,13 @@ class AnalyticsViewSet(viewsets.ViewSet):
         
         # Active savings goals
         active_goals = SavingsGoal.objects.filter(
-            user=request.user,
+            # user=request.user,
             status='active'
         ).count()
         
         # Upcoming subscriptions (next 7 days)
         upcoming_subscriptions = Subscription.objects.filter(
-            user=request.user,
+            # user=request.user,
             status='active',
             next_billing_date__gte=today,
             next_billing_date__lte=today + timedelta(days=7)
@@ -715,4 +831,57 @@ class AnalyticsViewSet(viewsets.ViewSet):
             'active_budgets': active_budgets,
             'active_goals': active_goals,
             'upcoming_subscriptions': upcoming_subscriptions
+        })
+
+
+class DashboardStatsView(APIView):
+    """Dashboard statistics view"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Get dashboard statistics"""
+        today = timezone.now().date()
+        user = request.user
+
+        # Total balance across all wallets
+        total_balance = Wallet.objects.filter(
+            is_active=True
+        ).aggregate(total=Sum('balance'))['total'] or 0
+
+        # Total income (all time)
+        total_income = Income.objects.all().aggregate(total=Sum('amount'))['total'] or 0
+
+        # Total expenses (all time)
+        total_expenses = Expense.objects.all().aggregate(total=Sum('amount'))['total'] or 0
+
+        # Active wallets count
+        active_wallets = Wallet.objects.filter(
+            is_active=True
+        ).count()
+
+        # Monthly income (current month)
+        monthly_income = Income.objects.filter(
+            # user=user,
+            date__year=today.year,
+            date__month=today.month
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # Monthly expenses (current month)
+        monthly_expenses = Expense.objects.filter(
+            # user=user,
+            date__year=today.year,
+            date__month=today.month
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # Net monthly (income - expenses for current month)
+        net_monthly = Decimal(str(monthly_income)) - Decimal(str(monthly_expenses))
+
+        return Response({
+            'total_balance': str(total_balance),
+            'total_income': str(total_income),
+            'total_expenses': str(total_expenses),
+            'active_wallets': active_wallets,
+            'monthly_income': str(monthly_income),
+            'monthly_expenses': str(monthly_expenses),
+            'net_monthly': str(net_monthly)
         })

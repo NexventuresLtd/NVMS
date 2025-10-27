@@ -4,7 +4,7 @@ from .views import (
     CurrencyViewSet, WalletViewSet, TransactionCategoryViewSet,
     TransactionTagViewSet, IncomeViewSet, ExpenseViewSet,
     SubscriptionViewSet, BudgetViewSet, SavingsGoalViewSet,
-    TransactionHistoryViewSet, AnalyticsViewSet
+    TransactionHistoryViewSet, AnalyticsViewSet, DashboardStatsView
 )
 
 router = DefaultRouter()
@@ -22,4 +22,5 @@ router.register(r'analytics', AnalyticsViewSet, basename='analytics')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
 ]

@@ -16,9 +16,9 @@ class CurrencyAdmin(admin.ModelAdmin):
 
 @admin.register(Wallet)
 class WalletAdmin(admin.ModelAdmin):
-    list_display = ['name', 'user', 'wallet_type', 'balance', 'currency', 'is_active', 'created_at']
+    list_display = ['name', 'wallet_type', 'balance', 'currency', 'is_active', 'created_at']
     list_filter = ['wallet_type', 'currency', 'is_active']
-    search_fields = ['name', 'user__username', 'user__email']
+    search_fields = ['name']
     ordering = ['-created_at']
     readonly_fields = ['created_at', 'updated_at']
 
@@ -41,9 +41,9 @@ class TransactionTagAdmin(admin.ModelAdmin):
 
 @admin.register(Income)
 class IncomeAdmin(admin.ModelAdmin):
-    list_display = ['title', 'user', 'wallet', 'project', 'amount', 'category', 'date', 'is_recurring', 'created_at']
+    list_display = ['title', 'wallet', 'project', 'amount', 'category', 'date', 'is_recurring', 'created_at']
     list_filter = ['is_recurring', 'recurrence_type', 'category', 'wallet']
-    search_fields = ['title', 'description', 'notes', 'user__username']
+    search_fields = ['title', 'description', 'notes']
     ordering = ['-date', '-created_at']
     readonly_fields = ['created_at', 'updated_at', 'next_occurrence']
     date_hierarchy = 'date'
@@ -52,9 +52,9 @@ class IncomeAdmin(admin.ModelAdmin):
 
 @admin.register(Expense)
 class ExpenseAdmin(admin.ModelAdmin):
-    list_display = ['title', 'user', 'wallet', 'project', 'amount', 'category', 'date', 'is_recurring', 'created_at']
+    list_display = ['title', 'wallet', 'project', 'amount', 'category', 'date', 'is_recurring', 'created_at']
     list_filter = ['is_recurring', 'recurrence_type', 'category', 'wallet']
-    search_fields = ['title', 'description', 'notes', 'user__username']
+    search_fields = ['title', 'description', 'notes']
     ordering = ['-date', '-created_at']
     readonly_fields = ['created_at', 'updated_at', 'next_occurrence']
     date_hierarchy = 'date'
@@ -63,9 +63,9 @@ class ExpenseAdmin(admin.ModelAdmin):
 
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
-    list_display = ['name', 'user', 'wallet', 'amount', 'billing_cycle', 'next_billing_date', 'status', 'created_at']
+    list_display = ['name', 'wallet', 'amount', 'billing_cycle', 'next_billing_date', 'status', 'created_at']
     list_filter = ['billing_cycle', 'status', 'category']
-    search_fields = ['name', 'description', 'user__username']
+    search_fields = ['name', 'description']
     ordering = ['next_billing_date']
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'next_billing_date'
@@ -73,9 +73,9 @@ class SubscriptionAdmin(admin.ModelAdmin):
 
 @admin.register(Budget)
 class BudgetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'user', 'budget_type', 'amount', 'currency', 'start_date', 'end_date', 'is_active']
+    list_display = ['name', 'budget_type', 'amount', 'currency', 'start_date', 'end_date', 'is_active']
     list_filter = ['budget_type', 'is_active', 'currency']
-    search_fields = ['name', 'description', 'user__username']
+    search_fields = ['name', 'description']
     ordering = ['-start_date']
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'start_date'
@@ -83,9 +83,9 @@ class BudgetAdmin(admin.ModelAdmin):
 
 @admin.register(SavingsGoal)
 class SavingsGoalAdmin(admin.ModelAdmin):
-    list_display = ['name', 'user', 'wallet', 'current_amount', 'target_amount', 'progress_percentage', 'status', 'target_date']
+    list_display = ['name', 'wallet', 'current_amount', 'target_amount', 'progress_percentage', 'status', 'target_date']
     list_filter = ['status', 'wallet']
-    search_fields = ['name', 'description', 'user__username']
+    search_fields = ['name', 'description']
     ordering = ['-created_at']
     readonly_fields = ['created_at', 'updated_at', 'progress_percentage', 'remaining_amount', 'is_completed']
 
@@ -94,7 +94,7 @@ class SavingsGoalAdmin(admin.ModelAdmin):
 class TransactionHistoryAdmin(admin.ModelAdmin):
     list_display = ['user', 'action', 'entity_type', 'entity_id', 'description', 'timestamp']
     list_filter = ['action', 'entity_type']
-    search_fields = ['description', 'user__username']
+    search_fields = ['description']
     ordering = ['-timestamp']
     readonly_fields = ['timestamp']
     
