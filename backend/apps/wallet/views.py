@@ -1,0 +1,718 @@
+from rest_framework import viewsets, status, filters
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Sum, Q, F
+from django.utils import timezone
+from datetime import datetime, timedelta
+from decimal import Decimal
+from django_filters.rest_framework import DjangoFilterBackend
+
+from .models import (
+    Currency, Wallet, TransactionCategory, TransactionTag,
+    Income, Expense, Subscription, Budget, SavingsGoal,
+    TransactionHistory
+)
+from .serializers import (
+    CurrencySerializer, WalletSerializer, TransactionCategorySerializer,
+    TransactionTagSerializer, IncomeSerializer, ExpenseSerializer,
+    SubscriptionSerializer, BudgetSerializer, SavingsGoalSerializer,
+    TransactionHistorySerializer, WalletSummarySerializer,
+    MonthlyReportSerializer, ProjectProfitabilitySerializer,
+    CashFlowSerializer
+)
+
+
+class CurrencyViewSet(viewsets.ModelViewSet):
+    """Currency management"""
+    queryset = Currency.objects.filter(is_active=True)
+    serializer_class = CurrencySerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['code', 'name']
+    ordering_fields = ['code', 'name']
+
+
+class WalletViewSet(viewsets.ModelViewSet):
+    """Wallet/Account management"""
+    serializer_class = WalletSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['wallet_type', 'currency', 'is_active']
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'balance', 'created_at']
+
+    def get_queryset(self):
+        return Wallet.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def transfer(self, request, pk=None):
+        """Transfer funds between wallets"""
+        source_wallet = self.get_object()
+        target_wallet_id = request.data.get('target_wallet_id')
+        amount = Decimal(request.data.get('amount', 0))
+        
+        if amount <= 0:
+            return Response(
+                {'error': 'Amount must be positive'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            target_wallet = Wallet.objects.get(id=target_wallet_id, user=request.user)
+        except Wallet.DoesNotExist:
+            return Response(
+                {'error': 'Target wallet not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        if source_wallet.balance < amount:
+            return Response(
+                {'error': 'Insufficient balance'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Perform transfer
+        source_wallet.update_balance(amount, 'subtract')
+        target_wallet.update_balance(amount, 'add')
+        
+        # Log transfer
+        TransactionHistory.objects.create(
+            user=request.user,
+            action='transfer',
+            entity_type='wallet',
+            entity_id=source_wallet.id,
+            description=f"Transferred {amount} from {source_wallet.name} to {target_wallet.name}",
+            new_data={
+                'source_wallet': source_wallet.id,
+                'target_wallet': target_wallet.id,
+                'amount': str(amount)
+            }
+        )
+        
+        return Response({
+            'message': 'Transfer successful',
+            'source_balance': source_wallet.balance,
+            'target_balance': target_wallet.balance
+        })
+
+    @action(detail=False, methods=['get'])
+    def summary(self, request):
+        """Get summary of all wallets"""
+        wallets = self.get_queryset()
+        summaries = []
+        
+        for wallet in wallets:
+            total_income = wallet.incomes.aggregate(total=Sum('amount'))['total'] or 0
+            total_expense = wallet.expenses.aggregate(total=Sum('amount'))['total'] or 0
+            
+            summaries.append({
+                'wallet_id': wallet.id,
+                'wallet_name': wallet.name,
+                'balance': wallet.balance,
+                'total_income': total_income,
+                'total_expense': total_expense,
+                'net_flow': total_income - total_expense,
+                'currency_code': wallet.currency.code
+            })
+        
+        serializer = WalletSummarySerializer(summaries, many=True)
+        return Response(serializer.data)
+
+
+class TransactionCategoryViewSet(viewsets.ModelViewSet):
+    """Transaction category management"""
+    queryset = TransactionCategory.objects.filter(is_active=True)
+    serializer_class = TransactionCategorySerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['category_type', 'parent']
+    search_fields = ['name', 'description']
+
+    @action(detail=False, methods=['get'])
+    def tree(self, request):
+        """Get category tree structure"""
+        root_categories = TransactionCategory.objects.filter(
+            parent__isnull=True,
+            is_active=True
+        )
+        serializer = self.get_serializer(root_categories, many=True)
+        return Response(serializer.data)
+
+
+class TransactionTagViewSet(viewsets.ModelViewSet):
+    """Transaction tag management"""
+    queryset = TransactionTag.objects.filter(is_active=True)
+    serializer_class = TransactionTagSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'description']
+
+
+class IncomeViewSet(viewsets.ModelViewSet):
+    """Income transaction management"""
+    serializer_class = IncomeSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['wallet', 'project', 'category', 'is_recurring', 'recurrence_type']
+    search_fields = ['title', 'description', 'notes']
+    ordering_fields = ['date', 'amount', 'created_at']
+
+    def get_queryset(self):
+        queryset = Income.objects.filter(user=self.request.user)
+        
+        # Filter by date range
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        if start_date:
+            queryset = queryset.filter(date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(date__lte=end_date)
+        
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user, created_by=self.request.user)
+        
+        # Log creation
+        income = serializer.instance
+        TransactionHistory.objects.create(
+            user=self.request.user,
+            action='create',
+            entity_type='income',
+            entity_id=income.id,
+            description=f"Created income: {income.title}",
+            new_data=serializer.data
+        )
+
+    def perform_update(self, serializer):
+        old_data = IncomeSerializer(self.get_object()).data
+        serializer.save()
+        
+        # Log update
+        income = serializer.instance
+        TransactionHistory.objects.create(
+            user=self.request.user,
+            action='update',
+            entity_type='income',
+            entity_id=income.id,
+            description=f"Updated income: {income.title}",
+            old_data=old_data,
+            new_data=serializer.data
+        )
+
+    def perform_destroy(self, instance):
+        # Log deletion
+        TransactionHistory.objects.create(
+            user=self.request.user,
+            action='delete',
+            entity_type='income',
+            entity_id=instance.id,
+            description=f"Deleted income: {instance.title}",
+            old_data=IncomeSerializer(instance).data
+        )
+        instance.delete()
+
+    @action(detail=False, methods=['post'])
+    def process_recurring(self, request):
+        """Process all due recurring incomes"""
+        today = timezone.now().date()
+        due_incomes = Income.objects.filter(
+            user=request.user,
+            is_recurring=True,
+            next_occurrence__lte=today
+        )
+        
+        created_count = 0
+        for income in due_incomes:
+            # Create new income for this occurrence
+            Income.objects.create(
+                user=income.user,
+                wallet=income.wallet,
+                project=income.project,
+                title=f"{income.title} (Recurring)",
+                amount=income.amount,
+                category=income.category,
+                description=income.description,
+                date=income.next_occurrence,
+                is_recurring=False,
+                created_by=income.user
+            )
+            created_count += 1
+            
+            # Update next occurrence
+            income.calculate_next_occurrence()
+        
+        return Response({
+            'message': f'Processed {created_count} recurring incomes',
+            'count': created_count
+        })
+
+
+class ExpenseViewSet(viewsets.ModelViewSet):
+    """Expense transaction management"""
+    serializer_class = ExpenseSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['wallet', 'project', 'category', 'is_recurring', 'recurrence_type']
+    search_fields = ['title', 'description', 'notes']
+    ordering_fields = ['date', 'amount', 'created_at']
+
+    def get_queryset(self):
+        queryset = Expense.objects.filter(user=self.request.user)
+        
+        # Filter by date range
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        if start_date:
+            queryset = queryset.filter(date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(date__lte=end_date)
+        
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user, created_by=self.request.user)
+        
+        # Log creation
+        expense = serializer.instance
+        TransactionHistory.objects.create(
+            user=self.request.user,
+            action='create',
+            entity_type='expense',
+            entity_id=expense.id,
+            description=f"Created expense: {expense.title}",
+            new_data=serializer.data
+        )
+
+    def perform_update(self, serializer):
+        old_data = ExpenseSerializer(self.get_object()).data
+        serializer.save()
+        
+        # Log update
+        expense = serializer.instance
+        TransactionHistory.objects.create(
+            user=self.request.user,
+            action='update',
+            entity_type='expense',
+            entity_id=expense.id,
+            description=f"Updated expense: {expense.title}",
+            old_data=old_data,
+            new_data=serializer.data
+        )
+
+    def perform_destroy(self, instance):
+        # Log deletion
+        TransactionHistory.objects.create(
+            user=self.request.user,
+            action='delete',
+            entity_type='expense',
+            entity_id=instance.id,
+            description=f"Deleted expense: {instance.title}",
+            old_data=ExpenseSerializer(instance).data
+        )
+        instance.delete()
+
+    @action(detail=False, methods=['post'])
+    def process_recurring(self, request):
+        """Process all due recurring expenses"""
+        today = timezone.now().date()
+        due_expenses = Expense.objects.filter(
+            user=request.user,
+            is_recurring=True,
+            next_occurrence__lte=today
+        )
+        
+        created_count = 0
+        for expense in due_expenses:
+            # Create new expense for this occurrence
+            Expense.objects.create(
+                user=expense.user,
+                wallet=expense.wallet,
+                project=expense.project,
+                title=f"{expense.title} (Recurring)",
+                amount=expense.amount,
+                category=expense.category,
+                description=expense.description,
+                date=expense.next_occurrence,
+                is_recurring=False,
+                created_by=expense.user
+            )
+            created_count += 1
+            
+            # Update next occurrence
+            expense.calculate_next_occurrence()
+        
+        return Response({
+            'message': f'Processed {created_count} recurring expenses',
+            'count': created_count
+        })
+
+
+class SubscriptionViewSet(viewsets.ModelViewSet):
+    """Subscription management"""
+    serializer_class = SubscriptionSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['wallet', 'category', 'status', 'billing_cycle']
+    search_fields = ['name', 'description']
+    ordering_fields = ['next_billing_date', 'amount', 'name']
+
+    def get_queryset(self):
+        return Subscription.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def renew(self, request, pk=None):
+        """Manually trigger subscription renewal"""
+        subscription = self.get_object()
+        
+        if subscription.status != 'active':
+            return Response(
+                {'error': 'Subscription is not active'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        expense = subscription.process_renewal()
+        
+        if expense:
+            return Response({
+                'message': 'Subscription renewed successfully',
+                'expense_id': expense.id,
+                'next_billing_date': subscription.next_billing_date
+            })
+        else:
+            return Response(
+                {'error': 'Failed to process renewal'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['get'])
+    def upcoming_renewals(self, request):
+        """Get subscriptions with upcoming renewals"""
+        days = int(request.query_params.get('days', 7))
+        today = timezone.now().date()
+        future_date = today + timedelta(days=days)
+        
+        subscriptions = self.get_queryset().filter(
+            status='active',
+            next_billing_date__gte=today,
+            next_billing_date__lte=future_date
+        )
+        
+        serializer = self.get_serializer(subscriptions, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def process_renewals(self, request):
+        """Process all due subscription renewals"""
+        today = timezone.now().date()
+        due_subscriptions = self.get_queryset().filter(
+            status='active',
+            next_billing_date__lte=today
+        )
+        
+        processed_count = 0
+        errors = []
+        
+        for subscription in due_subscriptions:
+            try:
+                subscription.process_renewal()
+                processed_count += 1
+            except Exception as e:
+                errors.append(f"{subscription.name}: {str(e)}")
+        
+        return Response({
+            'message': f'Processed {processed_count} subscriptions',
+            'count': processed_count,
+            'errors': errors
+        })
+
+
+class BudgetViewSet(viewsets.ModelViewSet):
+    """Budget management"""
+    serializer_class = BudgetSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['budget_type', 'project', 'category', 'is_active']
+    search_fields = ['name', 'description']
+    ordering_fields = ['start_date', 'amount', 'name']
+
+    def get_queryset(self):
+        return Budget.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def active(self, request):
+        """Get currently active budgets"""
+        today = timezone.now().date()
+        budgets = self.get_queryset().filter(
+            is_active=True,
+            start_date__lte=today,
+            end_date__gte=today
+        )
+        serializer = self.get_serializer(budgets, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def alerts(self, request):
+        """Get budgets that need attention (exceeded or near threshold)"""
+        today = timezone.now().date()
+        budgets = self.get_queryset().filter(
+            is_active=True,
+            start_date__lte=today,
+            end_date__gte=today
+        )
+        
+        alerts = []
+        for budget in budgets:
+            if budget.is_exceeded or budget.should_alert:
+                serializer = self.get_serializer(budget)
+                data = serializer.data
+                data['alert_type'] = 'exceeded' if budget.is_exceeded else 'warning'
+                alerts.append(data)
+        
+        return Response(alerts)
+
+
+class SavingsGoalViewSet(viewsets.ModelViewSet):
+    """Savings goal management"""
+    serializer_class = SavingsGoalSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['wallet', 'status']
+    search_fields = ['name', 'description']
+    ordering_fields = ['target_date', 'target_amount', 'created_at']
+
+    def get_queryset(self):
+        return SavingsGoal.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def contribute(self, request, pk=None):
+        """Add contribution to savings goal"""
+        goal = self.get_object()
+        amount = Decimal(request.data.get('amount', 0))
+        
+        if amount <= 0:
+            return Response(
+                {'error': 'Amount must be positive'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        goal.add_contribution(amount)
+        serializer = self.get_serializer(goal)
+        
+        return Response({
+            'message': 'Contribution added successfully',
+            'goal': serializer.data
+        })
+
+
+class TransactionHistoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """Transaction history/audit trail"""
+    serializer_class = TransactionHistorySerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['action', 'entity_type']
+    ordering_fields = ['timestamp']
+
+    def get_queryset(self):
+        return TransactionHistory.objects.filter(user=self.request.user)
+
+
+class AnalyticsViewSet(viewsets.ViewSet):
+    """Financial analytics and reports"""
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def monthly_report(self, request):
+        """Get monthly financial report"""
+        month = int(request.query_params.get('month', timezone.now().month))
+        year = int(request.query_params.get('year', timezone.now().year))
+        
+        # Get incomes and expenses for the month
+        incomes = Income.objects.filter(
+            user=request.user,
+            date__year=year,
+            date__month=month
+        )
+        expenses = Expense.objects.filter(
+            user=request.user,
+            date__year=year,
+            date__month=month
+        )
+        
+        total_income = incomes.aggregate(total=Sum('amount'))['total'] or 0
+        total_expense = expenses.aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Income by category
+        income_by_category = {}
+        for income in incomes:
+            cat_name = income.category.name
+            income_by_category[cat_name] = income_by_category.get(cat_name, 0) + float(income.amount)
+        
+        # Expense by category
+        expense_by_category = {}
+        for expense in expenses:
+            cat_name = expense.category.name
+            expense_by_category[cat_name] = expense_by_category.get(cat_name, 0) + float(expense.amount)
+        
+        # Top expenses
+        top_expenses = list(expenses.order_by('-amount')[:10].values('title', 'amount', 'date'))
+        
+        report_data = {
+            'month': month,
+            'year': year,
+            'total_income': total_income,
+            'total_expense': total_expense,
+            'net_savings': total_income - total_expense,
+            'income_by_category': income_by_category,
+            'expense_by_category': expense_by_category,
+            'top_expenses': top_expenses
+        }
+        
+        serializer = MonthlyReportSerializer(report_data)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def project_profitability(self, request):
+        """Analyze profitability of projects"""
+        from apps.projects.models import Project
+        
+        projects = Project.objects.filter(created_by=request.user)
+        profitability_data = []
+        
+        for project in projects:
+            total_income = project.incomes.aggregate(total=Sum('amount'))['total'] or 0
+            total_expense = project.expenses.aggregate(total=Sum('amount'))['total'] or 0
+            profit = total_income - total_expense
+            profit_margin = (profit / total_income * 100) if total_income > 0 else 0
+            
+            profitability_data.append({
+                'project_id': project.id,
+                'project_name': project.title,
+                'total_income': total_income,
+                'total_expense': total_expense,
+                'profit': profit,
+                'profit_margin': profit_margin
+            })
+        
+        serializer = ProjectProfitabilitySerializer(profitability_data, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def cash_flow(self, request):
+        """Get cash flow over time"""
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        
+        if not start_date or not end_date:
+            # Default to last 3 months
+            end_date = timezone.now().date()
+            start_date = end_date - timedelta(days=90)
+        else:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        
+        # Get all transactions in date range
+        incomes = Income.objects.filter(
+            user=request.user,
+            date__gte=start_date,
+            date__lte=end_date
+        ).values('date').annotate(total=Sum('amount'))
+        
+        expenses = Expense.objects.filter(
+            user=request.user,
+            date__gte=start_date,
+            date__lte=end_date
+        ).values('date').annotate(total=Sum('amount'))
+        
+        # Build daily cash flow
+        cash_flow_data = []
+        cumulative_balance = 0
+        
+        current_date = start_date
+        while current_date <= end_date:
+            day_income = sum(i['total'] for i in incomes if i['date'] == current_date)
+            day_expense = sum(e['total'] for e in expenses if e['date'] == current_date)
+            net_flow = day_income - day_expense
+            cumulative_balance += net_flow
+            
+            cash_flow_data.append({
+                'date': current_date,
+                'income': day_income,
+                'expense': day_expense,
+                'net_flow': net_flow,
+                'cumulative_balance': cumulative_balance
+            })
+            
+            current_date += timedelta(days=1)
+        
+        serializer = CashFlowSerializer(cash_flow_data, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def dashboard(self, request):
+        """Get dashboard overview"""
+        today = timezone.now().date()
+        
+        # Current month stats
+        current_month_income = Income.objects.filter(
+            user=request.user,
+            date__year=today.year,
+            date__month=today.month
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        current_month_expense = Expense.objects.filter(
+            user=request.user,
+            date__year=today.year,
+            date__month=today.month
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Total wallet balance
+        total_balance = Wallet.objects.filter(
+            user=request.user,
+            is_active=True
+        ).aggregate(total=Sum('balance'))['total'] or 0
+        
+        # Active budgets
+        active_budgets = Budget.objects.filter(
+            user=request.user,
+            is_active=True,
+            start_date__lte=today,
+            end_date__gte=today
+        ).count()
+        
+        # Active savings goals
+        active_goals = SavingsGoal.objects.filter(
+            user=request.user,
+            status='active'
+        ).count()
+        
+        # Upcoming subscriptions (next 7 days)
+        upcoming_subscriptions = Subscription.objects.filter(
+            user=request.user,
+            status='active',
+            next_billing_date__gte=today,
+            next_billing_date__lte=today + timedelta(days=7)
+        ).count()
+        
+        return Response({
+            'current_month_income': current_month_income,
+            'current_month_expense': current_month_expense,
+            'net_savings': current_month_income - current_month_expense,
+            'total_balance': total_balance,
+            'active_budgets': active_budgets,
+            'active_goals': active_goals,
+            'upcoming_subscriptions': upcoming_subscriptions
+        })

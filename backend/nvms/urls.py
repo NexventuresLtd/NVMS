@@ -35,9 +35,9 @@ urlpatterns = [
     # App URLs
     path('', include('apps.portfolio.urls')),
     path('', include('apps.projects.urls')),
+    path('api/wallet/', include('apps.wallet.urls')),
     # Add other app URLs here as we develop them
     # path('api/auth/', include('apps.authentication.urls')),
-    # path('api/wallet/', include('apps.wallet.urls')),
     # path('api/messaging/', include('apps.messaging.urls')),
     # path('api/bulletin/', include('apps.bulletin.urls')),
     # path('api/dashboard/', include('apps.dashboard.urls')),
