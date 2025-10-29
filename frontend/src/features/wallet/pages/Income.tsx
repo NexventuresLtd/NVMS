@@ -142,8 +142,8 @@ const Income: React.FC = () => {
   const handleEdit = (income: IncomeType) => {
     setEditingIncome(income);
     setFormData({
-      wallet: income.wallet.id.toString(),
-      category: income.category.id.toString(),
+      wallet: income.wallet_details.id.toString(),
+      category: income.category_details.id.toString(),
       project: income.project?.id.toString() || "",
       tags: income.tags.map((t) => t.id),
       amount: income.amount,

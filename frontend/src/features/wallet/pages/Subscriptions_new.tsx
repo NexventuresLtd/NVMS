@@ -7,7 +7,6 @@ import {
   X,
   Calendar,
   DollarSign,
-  AlertCircle,
 } from "lucide-react";
 import walletApi, {
   type Subscription,

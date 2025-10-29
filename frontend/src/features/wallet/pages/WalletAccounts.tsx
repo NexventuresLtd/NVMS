@@ -96,7 +96,7 @@ const WalletAccounts: React.FC = () => {
       name: wallet.name,
       wallet_type: wallet.wallet_type,
       balance: wallet.balance,
-      currency: wallet.currency.id.toString(),
+      currency: wallet.currency_details.id.toString(),
       description: wallet.description || "",
       is_active: wallet.is_active,
     });
