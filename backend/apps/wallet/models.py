@@ -380,7 +380,7 @@ class Subscription(models.Model):
     )
     
     description = models.TextField(blank=True)
-    website_url = models.URLField(blank=True)
+    website_url = models.URLField(blank=True) 
     notes = models.TextField(blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
