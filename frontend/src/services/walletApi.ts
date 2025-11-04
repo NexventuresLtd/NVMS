@@ -60,25 +60,41 @@ export interface Project {
 
 export interface Income {
   id: number;
-  wallet: number;
-  wallet_details: Wallet;
-  category: number;
-  category_details: TransactionCategory;
-  tags: TransactionTag[];
-  project?: Project | null;
   title: string;
+  wallet: number;
+  category: number;
+  project?: string | null;
+  tags?: number[];
   amount: string;
+  amount_rwf: string;
   amount_original: string;
   currency_original: number;
-  currency_original_details?: Currency;
   description: string;
   date: string;
   is_recurring: boolean;
-  recurrence_interval?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
+  recurrence_type: string;
+  recurrence_type_display?: string;
   recurrence_day?: number | null;
   next_occurrence?: string | null;
+  created_by?: number;
   created_at: string;
   updated_at: string;
+}
+
+// Full income details (when fetching single item)
+export interface IncomeDetail extends Income {
+  wallet_details: Wallet;
+  category_details: TransactionCategory;
+  tags_details: TransactionTag[];
+  project_details?: Project | null;
+  currency_original_details?: Currency;
+  created_by_details?: {
+    id: number;
+    username: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
 }
 
 export interface IncomeCreateData {
@@ -98,25 +114,41 @@ export interface IncomeCreateData {
 
 export interface Expense {
   id: number;
-  wallet: number;
-  wallet_details: Wallet;
-  category: number;
-  category_details: TransactionCategory;
-  tags: TransactionTag[];
-  project?: Project | null;
   title: string;
+  wallet: number;
+  category: number;
+  project?: string | null;
+  tags?: number[];
   amount: string;
+  amount_rwf: string;
   amount_original: string;
   currency_original: number;
-  currency_original_details?: Currency;
   description: string;
   date: string;
   is_recurring: boolean;
-  recurrence_interval?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
+  recurrence_type: string;
+  recurrence_type_display?: string;
   recurrence_day?: number | null;
   next_occurrence?: string | null;
+  created_by?: number;
   created_at: string;
   updated_at: string;
+}
+
+// Full expense details (when fetching single item)
+export interface ExpenseDetail extends Expense {
+  wallet_details: Wallet;
+  category_details: TransactionCategory;
+  tags_details: TransactionTag[];
+  project_details?: Project | null;
+  currency_original_details?: Currency;
+  created_by_details?: {
+    id: number;
+    username: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
 }
 
 export interface ExpenseCreateData {
@@ -136,20 +168,31 @@ export interface ExpenseCreateData {
 
 export interface Subscription {
   id: number;
-  wallet: Wallet;
-  category: TransactionCategory;
-  tags: TransactionTag[];
-  project?: Project | null;
   name: string;
+  wallet: number;
+  category: number;
+  currency_original: number;
   amount: string;
-  billing_cycle: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  amount_rwf: string;
+  amount_original: string;
+  billing_cycle: 'monthly' | 'quarterly' | 'semi_annually' | 'yearly';
+  billing_cycle_display?: string;
+  status: 'active' | 'paused' | 'cancelled';
+  status_display?: string;
   start_date: string;
   next_billing_date: string;
   end_date?: string | null;
-  is_active: boolean;
+  days_until_renewal?: number;
   description?: string;
   created_at: string;
   updated_at: string;
+}
+
+// Full subscription details (when fetching single item)
+export interface SubscriptionDetail extends Subscription {
+  wallet_details: Wallet;
+  category_details: TransactionCategory;
+  currency_original_details?: Currency;
 }
 
 export interface SubscriptionCreateData {
@@ -216,6 +259,7 @@ export interface IncomeStats {
   this_month: string;
   this_year: string;
   count: number;
+  currency: string;
 }
 
 export interface ExpenseStats {
@@ -253,6 +297,7 @@ export interface DashboardStats {
   monthly_income: string;
   monthly_expenses: string;
   net_monthly: string;
+  currency: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -262,7 +307,20 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
+export interface ReferenceData {
+  wallets: Wallet[];
+  currencies: Currency[];
+  categories: TransactionCategory[];
+  tags: TransactionTag[];
+}
+
 class WalletApi {
+  // Reference Data - Fetch all reference data in one request
+  async getReferenceData(): Promise<ReferenceData> {
+    const response = await api.get('/wallet/reference-data/');
+    return response.data;
+  }
+
   // Currencies
   async getCurrencies(): Promise<Currency[]> {
     const response = await api.get('/wallet/currencies/');

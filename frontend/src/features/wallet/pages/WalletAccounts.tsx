@@ -12,6 +12,7 @@ import walletApi, {
   type Wallet,
   type Currency,
 } from "../../../services/walletApi";
+import { formatCurrency } from "../../../lib/utils";
 
 const WalletAccounts: React.FC = () => {
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -153,13 +154,6 @@ const WalletAccounts: React.FC = () => {
     });
   };
 
-  const formatCurrency = (amount: string, symbol: string) => {
-    return `${symbol} ${parseFloat(amount).toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  };
-
   const getWalletTypeColor = (type: string) => {
     switch (type) {
       case "savings":
@@ -284,8 +278,8 @@ const WalletAccounts: React.FC = () => {
                     <p className="text-sm text-gray-500">Current Balance</p>
                     <p className="text-2xl font-bold text-gray-900">
                       {formatCurrency(
-                        wallet.balance,
-                        wallet.currency_details.symbol
+                        parseFloat(wallet.balance),
+                        wallet.currency_details.code
                       )}
                     </p>
                   </div>
@@ -293,8 +287,8 @@ const WalletAccounts: React.FC = () => {
                     <span className="text-gray-500">Initial Balance:</span>
                     <span className="font-medium text-gray-700">
                       {formatCurrency(
-                        wallet.initial_balance,
-                        wallet.currency_details.symbol
+                        parseFloat(wallet.initial_balance),
+                        wallet.currency_details.code
                       )}
                     </span>
                   </div>
@@ -526,8 +520,8 @@ const WalletAccounts: React.FC = () => {
                       <option key={wallet.id} value={wallet.id}>
                         {wallet.name} -{" "}
                         {formatCurrency(
-                          wallet.balance,
-                          wallet.currency_details.symbol
+                          parseFloat(wallet.balance),
+                          wallet.currency_details.code
                         )}
                       </option>
                     ))}
@@ -560,8 +554,8 @@ const WalletAccounts: React.FC = () => {
                       <option key={wallet.id} value={wallet.id}>
                         {wallet.name} -{" "}
                         {formatCurrency(
-                          wallet.balance,
-                          wallet.currency_details.symbol
+                          parseFloat(wallet.balance),
+                          wallet.currency_details.code
                         )}
                       </option>
                     ))}

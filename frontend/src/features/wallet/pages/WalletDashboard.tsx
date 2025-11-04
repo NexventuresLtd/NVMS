@@ -8,6 +8,7 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 import walletApi, { type DashboardStats } from "../../../services/walletApi";
+import { formatCurrency } from "../../../lib/utils";
 
 const WalletDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -27,13 +28,6 @@ const WalletDashboard: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const formatCurrency = (amount: string) => {
-    return `$${parseFloat(amount).toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
   };
 
   if (isLoading) {
@@ -67,7 +61,10 @@ const WalletDashboard: React.FC = () => {
                     Total Balance
                   </p>
                   <p className="text-2xl font-bold text-gray-900 mt-2">
-                    {formatCurrency(stats.total_balance)}
+                    {formatCurrency(
+                      parseFloat(stats.total_balance),
+                      stats.currency
+                    )}
                   </p>
                 </div>
                 <div className="bg-primary-100 p-3 rounded-full">
@@ -83,7 +80,10 @@ const WalletDashboard: React.FC = () => {
                     Total Income
                   </p>
                   <p className="text-2xl font-bold text-green-600 mt-2">
-                    {formatCurrency(stats.total_income)}
+                    {formatCurrency(
+                      parseFloat(stats.total_income),
+                      stats.currency
+                    )}
                   </p>
                 </div>
                 <div className="bg-green-100 p-3 rounded-full">
@@ -99,7 +99,10 @@ const WalletDashboard: React.FC = () => {
                     Total Expenses
                   </p>
                   <p className="text-2xl font-bold text-red-600 mt-2">
-                    {formatCurrency(stats.total_expenses)}
+                    {formatCurrency(
+                      parseFloat(stats.total_expenses),
+                      stats.currency
+                    )}
                   </p>
                 </div>
                 <div className="bg-red-100 p-3 rounded-full">
@@ -135,7 +138,10 @@ const WalletDashboard: React.FC = () => {
                 <ArrowUpRight className="h-5 w-5 text-green-600" />
               </div>
               <p className="text-3xl font-bold text-green-600">
-                {formatCurrency(stats.monthly_income)}
+                {formatCurrency(
+                  parseFloat(stats.monthly_income),
+                  stats.currency
+                )}
               </p>
               <p className="text-sm text-gray-500 mt-2">This month</p>
             </div>
@@ -148,7 +154,10 @@ const WalletDashboard: React.FC = () => {
                 <ArrowDownRight className="h-5 w-5 text-red-600" />
               </div>
               <p className="text-3xl font-bold text-red-600">
-                {formatCurrency(stats.monthly_expenses)}
+                {formatCurrency(
+                  parseFloat(stats.monthly_expenses),
+                  stats.currency
+                )}
               </p>
               <p className="text-sm text-gray-500 mt-2">This month</p>
             </div>
@@ -167,7 +176,7 @@ const WalletDashboard: React.FC = () => {
                     : "text-red-600"
                 }`}
               >
-                {formatCurrency(stats.net_monthly)}
+                {formatCurrency(parseFloat(stats.net_monthly), stats.currency)}
               </p>
               <p className="text-sm text-gray-500 mt-2">Income - Expenses</p>
             </div>

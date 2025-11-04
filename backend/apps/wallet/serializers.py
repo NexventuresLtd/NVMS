@@ -72,6 +72,22 @@ class TransactionTagSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+# Lightweight serializers for list views
+class IncomeListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for income list - only IDs for foreign keys"""
+    recurrence_type_display = serializers.CharField(source='get_recurrence_type_display', read_only=True)
+    
+    class Meta:
+        model = Income
+        fields = [
+            'id', 'title', 'amount', 'amount_rwf', 'amount_original', 
+            'date', 'description', 'is_recurring', 'recurrence_type', 'recurrence_type_display',
+            'wallet', 'project', 'category', 'currency_original', 'created_by',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'amount', 'amount_rwf']
+
+
 class IncomeSerializer(serializers.ModelSerializer):
     wallet_details = WalletSerializer(source='wallet', read_only=True)
     project_details = ProjectListSerializer(source='project', read_only=True)
@@ -97,6 +113,22 @@ class IncomeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Selected category is not valid for income")
         
         return data
+
+
+# Lightweight serializer for expense list
+class ExpenseListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for expense list - only IDs for foreign keys"""
+    recurrence_type_display = serializers.CharField(source='get_recurrence_type_display', read_only=True)
+    
+    class Meta:
+        model = Expense
+        fields = [
+            'id', 'title', 'amount', 'amount_rwf', 'amount_original',
+            'date', 'description', 'is_recurring', 'recurrence_type', 'recurrence_type_display',
+            'wallet', 'project', 'category', 'currency_original', 'created_by',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'amount', 'amount_rwf']
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
@@ -130,6 +162,25 @@ class ExpenseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Insufficient balance in {wallet.name}")
         
         return data
+
+
+# Lightweight serializer for subscription list
+class SubscriptionListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for subscription list - only IDs for foreign keys"""
+    billing_cycle_display = serializers.CharField(source='get_billing_cycle_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    days_until_renewal = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = Subscription
+        fields = [
+            'id', 'name', 'amount', 'amount_rwf', 'amount_original',
+            'billing_cycle', 'billing_cycle_display', 'status', 'status_display',
+            'start_date', 'next_billing_date', 'end_date', 'days_until_renewal',
+            'wallet', 'category', 'currency_original',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'amount', 'amount_rwf']
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):

@@ -123,12 +123,30 @@ export function generateId(): string {
 }
 
 // Currency formatter
-export function formatCurrency(amount: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
+export function formatCurrency(
+  amount: number,
+  currency: string = 'USD',
+  locale?: string
+): string {
+  // Special case: Rwandan Franc (RWF)
+  if (currency === 'RWF') {
+    return new Intl.NumberFormat(locale || 'fr-RW', {
+      style: 'currency',
+      currency: 'RWF',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+      currencyDisplay: 'code',
+    })
+      .format(amount)
+  }
+
+  // Default for all other currencies
+  return new Intl.NumberFormat(locale || 'en-US', {
     style: 'currency',
     currency,
   }).format(amount);
 }
+
 
 // Number formatter with commas
 export function formatNumber(num: number): string {

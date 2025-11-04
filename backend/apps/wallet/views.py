@@ -18,12 +18,35 @@ from .models import (
 )
 from .serializers import (
     CurrencySerializer, WalletSerializer, TransactionCategorySerializer,
-    TransactionTagSerializer, IncomeSerializer, ExpenseSerializer,
-    SubscriptionSerializer, BudgetSerializer, SavingsGoalSerializer,
+    TransactionTagSerializer, IncomeSerializer, IncomeListSerializer,
+    ExpenseSerializer, ExpenseListSerializer, SubscriptionSerializer,
+    SubscriptionListSerializer, BudgetSerializer, SavingsGoalSerializer,
     TransactionHistorySerializer, WalletSummarySerializer,
     MonthlyReportSerializer, ProjectProfitabilitySerializer,
     CashFlowSerializer
 )
+
+
+class ReferenceDataView(APIView):
+    """
+    Single endpoint to fetch all reference data (wallets, currencies, categories, etc.)
+    This reduces the number of API calls needed when loading forms
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get all reference data in one request"""
+        wallets = Wallet.objects.filter(is_active=True).select_related('currency')
+        currencies = Currency.objects.filter(is_active=True)
+        categories = TransactionCategory.objects.filter(is_active=True).select_related('parent')
+        tags = TransactionTag.objects.filter(is_active=True)
+        
+        return Response({
+            'wallets': WalletSerializer(wallets, many=True).data,
+            'currencies': CurrencySerializer(currencies, many=True).data,
+            'categories': TransactionCategorySerializer(categories, many=True).data,
+            'tags': TransactionTagSerializer(tags, many=True).data,
+        })
 
 
 class CurrencyViewSet(viewsets.ModelViewSet):
@@ -217,6 +240,12 @@ class IncomeViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'description', 'notes']
     ordering_fields = ['date', 'amount', 'created_at']
 
+    def get_serializer_class(self):
+        """Use lightweight serializer for list, full serializer for detail"""
+        if self.action == 'list':
+            return IncomeListSerializer
+        return IncomeSerializer
+
     def get_queryset(self):
         queryset = Income.objects.all()
         
@@ -339,6 +368,12 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'description', 'notes']
     ordering_fields = ['date', 'amount', 'created_at']
 
+    def get_serializer_class(self):
+        """Use lightweight serializer for list, full serializer for detail"""
+        if self.action == 'list':
+            return ExpenseListSerializer
+        return ExpenseSerializer
+
     def get_queryset(self):
         queryset = Expense.objects.all()
         
@@ -460,6 +495,12 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     filterset_fields = ['wallet', 'category', 'status', 'billing_cycle']
     search_fields = ['name', 'description']
     ordering_fields = ['next_billing_date', 'amount', 'name']
+
+    def get_serializer_class(self):
+        """Use lightweight serializer for list, full serializer for detail"""
+        if self.action == 'list':
+            return SubscriptionListSerializer
+        return SubscriptionSerializer
 
     def get_queryset(self):
         return Subscription.objects.all()
