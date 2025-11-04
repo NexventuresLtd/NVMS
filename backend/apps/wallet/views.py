@@ -297,7 +297,7 @@ class IncomeViewSet(viewsets.ModelViewSet):
             entity_type='income',
             entity_id=instance.id,
             description=f"Deleted income: {instance.title}",
-            old_data=IncomeSerializer(instance).data
+            old_data=json.dumps(IncomeSerializer(instance).data, cls=DjangoJSONEncoder)
         )
         instance.delete()
 
@@ -398,7 +398,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             entity_type='expense',
             entity_id=expense.id,
             description=f"Created expense: {expense.title}",
-            new_data=serializer.data
+            new_data=json.dumps(json.loads(serializer.data, cls=DjangoJSONEncoder))
         )
 
     def perform_update(self, serializer):
@@ -414,7 +414,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             entity_id=expense.id,
             description=f"Updated expense: {expense.title}",
             old_data=old_data,
-            new_data=serializer.data
+            new_data=json.dumps(serializer.data, cls=DjangoJSONEncoder)
         )
 
     def perform_destroy(self, instance):
@@ -425,7 +425,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             entity_type='expense',
             entity_id=instance.id,
             description=f"Deleted expense: {instance.title}",
-            old_data=ExpenseSerializer(instance).data
+            old_data=json.dumps(ExpenseSerializer(instance).data, cls=DjangoJSONEncoder)
         )
         instance.delete()
 

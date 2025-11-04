@@ -18,8 +18,10 @@ import walletApi, {
   type ReferenceData,
 } from "../../../services/walletApi";
 import { formatCurrency } from "../../../lib/utils";
+import { useAuth } from "../../../contexts/AuthContext";
 
 const Income: React.FC = () => {
+  const { isAdmin } = useAuth();
   const [income, setIncome] = useState<IncomeType[]>([]);
   const [stats, setStats] = useState<IncomeStats | null>(null);
   const [referenceData, setReferenceData] = useState<ReferenceData | null>(
@@ -294,9 +296,11 @@ const Income: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  {isAdmin && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -343,24 +347,26 @@ const Income: React.FC = () => {
                           ≈ {formatCurrency(parseFloat(item.amount_rwf), "RWF")}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEdit(item)}
-                            className="text-blue-600 hover:text-blue-800"
-                            title="Edit"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEdit(item)}
+                              className="text-blue-600 hover:text-blue-800"
+                              title="Edit"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              className="text-red-600 hover:text-red-800"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

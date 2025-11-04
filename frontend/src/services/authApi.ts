@@ -145,6 +145,16 @@ class AuthApi {
   getRefreshToken(): string | null {
     return this.refreshToken;
   }
+
+  async getCurrentUser(): Promise<any> {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/auth/me/`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get current user:', error);
+      throw error;
+    }
+  }
 }
 
 // Export a singleton instance

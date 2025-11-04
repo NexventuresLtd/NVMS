@@ -22,7 +22,9 @@ import { formatCurrency as formatCurrencyUtil } from "../../../lib/utils";
 const Subscriptions: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [stats, setStats] = useState<SubscriptionStats | null>(null);
-  const [referenceData, setReferenceData] = useState<ReferenceData | null>(null);
+  const [referenceData, setReferenceData] = useState<ReferenceData | null>(
+    null
+  );
   const [projects, setProjects] = useState<Project[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,19 +34,19 @@ const Subscriptions: React.FC = () => {
   // Create lookup maps for efficient access
   const walletMap = useMemo(() => {
     const map = new Map<number, Wallet>();
-    referenceData?.wallets.forEach(w => map.set(w.id, w));
+    referenceData?.wallets.forEach((w) => map.set(w.id, w));
     return map;
   }, [referenceData]);
 
   const categoryMap = useMemo(() => {
     const map = new Map<number, TransactionCategory>();
-    referenceData?.categories.forEach(c => map.set(c.id, c));
+    referenceData?.categories.forEach((c) => map.set(c.id, c));
     return map;
   }, [referenceData]);
 
   const currencyMap = useMemo(() => {
     const map = new Map<number, Currency>();
-    referenceData?.currencies.forEach(c => map.set(c.id, c));
+    referenceData?.currencies.forEach((c) => map.set(c.id, c));
     return map;
   }, [referenceData]);
 
@@ -54,7 +56,11 @@ const Subscriptions: React.FC = () => {
     project: "",
     name: "",
     amount: "",
-    billing_cycle: "monthly" as "monthly" | "yearly" | "quarterly" | "semi_annually",
+    billing_cycle: "monthly" as
+      | "monthly"
+      | "yearly"
+      | "quarterly"
+      | "semi_annually",
     start_date: new Date().toISOString().split("T")[0],
     end_date: "",
     description: "",
@@ -67,13 +73,12 @@ const Subscriptions: React.FC = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [subsData, statsData, refData, projectsData] =
-        await Promise.all([
-          walletApi.getSubscriptions(),
-          walletApi.getSubscriptionStats(),
-          walletApi.getReferenceData(),
-          walletApi.getProjects(),
-        ]);
+      const [subsData, statsData, refData, projectsData] = await Promise.all([
+        walletApi.getSubscriptions(),
+        walletApi.getSubscriptionStats(),
+        walletApi.getReferenceData(),
+        walletApi.getProjects(),
+      ]);
 
       setSubscriptions(subsData);
       setStats(statsData);
@@ -289,7 +294,7 @@ const Subscriptions: React.FC = () => {
                   const wallet = walletMap.get(sub.wallet);
                   const category = categoryMap.get(sub.category);
                   const currency = currencyMap.get(sub.currency_original);
-                  
+
                   return (
                     <tr key={sub.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -300,7 +305,7 @@ const Subscriptions: React.FC = () => {
                               {sub.name}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {wallet?.name || 'N/A'}
+                              {wallet?.name || "N/A"}
                             </div>
                           </div>
                         </div>
@@ -309,17 +314,26 @@ const Subscriptions: React.FC = () => {
                         <span
                           className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
                           style={{
-                            backgroundColor: category?.color ? `${category.color}20` : '#f3f4f6',
-                            color: category?.color || '#6b7280',
+                            backgroundColor: category?.color
+                              ? `${category.color}20`
+                              : "#f3f4f6",
+                            color: category?.color || "#6b7280",
                           }}
                         >
-                          {category?.name || 'N/A'}
+                          {category?.name || "N/A"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
-                        {formatCurrencyUtil(parseFloat(sub.amount_original), currency?.code || 'RWF')}
+                        {formatCurrencyUtil(
+                          parseFloat(sub.amount_original),
+                          currency?.code || "RWF"
+                        )}
                         <div className="text-xs text-gray-500 font-normal">
-                          ≈ {formatCurrencyUtil(parseFloat(sub.amount_rwf), 'RWF')}
+                          ≈{" "}
+                          {formatCurrencyUtil(
+                            parseFloat(sub.amount_rwf),
+                            "RWF"
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -333,25 +347,25 @@ const Subscriptions: React.FC = () => {
                           Active
                         </span>
                       </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEdit(sub)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Edit"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(sub.id)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEdit(sub)}
+                            className="text-blue-600 hover:text-blue-800"
+                            title="Edit"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(sub.id)}
+                            className="text-red-600 hover:text-red-800"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>
@@ -429,7 +443,11 @@ const Subscriptions: React.FC = () => {
                   >
                     <option value="">Select category</option>
                     {referenceData?.categories
-                      .filter(c => c.category_type === 'expense' || c.category_type === 'both')
+                      .filter(
+                        (c) =>
+                          c.category_type === "expense" ||
+                          c.category_type === "both"
+                      )
                       .map((category) => (
                         <option key={category.id} value={category.id}>
                           {category.name}
