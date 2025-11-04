@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Plus,
   Receipt,
@@ -13,28 +13,54 @@ import walletApi, {
   type SubscriptionStats,
   type Wallet,
   type TransactionCategory,
+  type ReferenceData,
+  type Currency,
 } from "../../../services/walletApi";
+import { formatCurrency as formatCurrencyUtil } from "../../../lib/utils";
 
 const Subscriptions: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [stats, setStats] = useState<SubscriptionStats | null>(null);
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [categories, setCategories] = useState<TransactionCategory[]>([]);
+  const [referenceData, setReferenceData] = useState<ReferenceData | null>(
+    null
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [editingSubscription, setEditingSubscription] =
     useState<Subscription | null>(null);
+
+  // Create lookup maps for efficient access
+  const walletMap = useMemo(() => {
+    const map = new Map<number, Wallet>();
+    referenceData?.wallets.forEach((w) => map.set(w.id, w));
+    return map;
+  }, [referenceData]);
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<number, TransactionCategory>();
+    referenceData?.categories.forEach((c) => map.set(c.id, c));
+    return map;
+  }, [referenceData]);
+
+  const currencyMap = useMemo(() => {
+    const map = new Map<number, Currency>();
+    referenceData?.currencies.forEach((c) => map.set(c.id, c));
+    return map;
+  }, [referenceData]);
 
   const [formData, setFormData] = useState({
     wallet: "",
     category: "",
     name: "",
     amount: "",
-    billing_cycle: "monthly" as "daily" | "weekly" | "monthly" | "yearly",
+    billing_cycle: "monthly" as
+      | "monthly"
+      | "yearly"
+      | "quarterly"
+      | "semi_annually",
     start_date: new Date().toISOString().split("T")[0],
     end_date: "",
     description: "",
-    is_active: true,
   });
 
   useEffect(() => {
@@ -44,18 +70,15 @@ const Subscriptions: React.FC = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [subsData, statsData, walletsData, categoriesData] =
-        await Promise.all([
-          walletApi.getSubscriptions(),
-          walletApi.getSubscriptionStats(),
-          walletApi.getWallets(),
-          walletApi.getCategories("expense"),
-        ]);
+      const [subsData, statsData, refData] = await Promise.all([
+        walletApi.getSubscriptions(),
+        walletApi.getSubscriptionStats(),
+        walletApi.getReferenceData(),
+      ]);
 
       setSubscriptions(subsData);
       setStats(statsData);
-      setWallets(walletsData);
-      setCategories(categoriesData);
+      setReferenceData(refData);
     } catch (error) {
       console.error("Error loading subscription data:", error);
     } finally {
@@ -76,7 +99,6 @@ const Subscriptions: React.FC = () => {
         start_date: formData.start_date,
         end_date: formData.end_date || null,
         description: formData.description,
-        is_active: formData.is_active,
       };
 
       if (editingSubscription) {
@@ -106,15 +128,14 @@ const Subscriptions: React.FC = () => {
   const handleEdit = (subscription: Subscription) => {
     setEditingSubscription(subscription);
     setFormData({
-      wallet: subscription.wallet.id.toString(),
-      category: subscription.category.id.toString(),
+      wallet: subscription.wallet.toString(),
+      category: subscription.category.toString(),
       name: subscription.name,
       amount: subscription.amount,
       billing_cycle: subscription.billing_cycle,
       start_date: subscription.start_date,
       end_date: subscription.end_date || "",
       description: subscription.description || "",
-      is_active: subscription.is_active,
     });
     setIsModalOpen(true);
   };
@@ -131,7 +152,6 @@ const Subscriptions: React.FC = () => {
       start_date: new Date().toISOString().split("T")[0],
       end_date: "",
       description: "",
-      is_active: true,
     });
   };
 
@@ -262,72 +282,84 @@ const Subscriptions: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {subscriptions.map((sub) => (
-                  <tr key={sub.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Receipt className="h-5 w-5 text-gray-400 mr-2" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {sub.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {sub.wallet.name}
+                {subscriptions.map((sub) => {
+                  const wallet = walletMap.get(sub.wallet);
+                  const category = categoryMap.get(sub.category);
+                  const currency = currencyMap.get(sub.currency_original);
+
+                  return (
+                    <tr key={sub.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <Receipt className="h-5 w-5 text-gray-400 mr-2" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {sub.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {wallet?.name || "N/A"}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                        style={{
-                          backgroundColor: `${sub.category.color}20`,
-                          color: sub.category.color,
-                        }}
-                      >
-                        {sub.category.name}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
-                      {formatCurrency(sub.amount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {getBillingCycleLabel(sub.billing_cycle)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(sub.next_billing_date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {sub.is_active ? (
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                          style={{
+                            backgroundColor: category?.color
+                              ? `${category.color}20`
+                              : "#f3f4f6",
+                            color: category?.color || "#6b7280",
+                          }}
+                        >
+                          {category?.name || "N/A"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
+                        {formatCurrencyUtil(
+                          parseFloat(sub.amount_original),
+                          currency?.code || "RWF"
+                        )}
+                        <div className="text-xs text-gray-500 font-normal">
+                          ≈{" "}
+                          {formatCurrencyUtil(
+                            parseFloat(sub.amount_rwf),
+                            "RWF"
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {getBillingCycleLabel(sub.billing_cycle)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(sub.next_billing_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           Active
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          Inactive
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEdit(sub)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Edit"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(sub.id)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEdit(sub)}
+                            className="text-blue-600 hover:text-blue-800"
+                            title="Edit"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(sub.id)}
+                            className="text-red-600 hover:text-red-800"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -381,7 +413,7 @@ const Subscriptions: React.FC = () => {
                     required
                   >
                     <option value="">Select wallet</option>
-                    {wallets.map((wallet) => (
+                    {referenceData?.wallets.map((wallet) => (
                       <option key={wallet.id} value={wallet.id}>
                         {wallet.name}
                       </option>
@@ -402,11 +434,17 @@ const Subscriptions: React.FC = () => {
                     required
                   >
                     <option value="">Select category</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
+                    {referenceData?.categories
+                      .filter(
+                        (c) =>
+                          c.category_type === "expense" ||
+                          c.category_type === "both"
+                      )
+                      .map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -492,22 +530,6 @@ const Subscriptions: React.FC = () => {
                   rows={3}
                   placeholder="Optional description..."
                 />
-              </div>
-
-              <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_active}
-                    onChange={(e) =>
-                      setFormData({ ...formData, is_active: e.target.checked })
-                    }
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    Active subscription
-                  </span>
-                </label>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">

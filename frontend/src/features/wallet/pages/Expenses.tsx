@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Plus,
   TrendingDown,
@@ -13,24 +13,40 @@ import walletApi, {
   type ExpenseStats,
   type Wallet,
   type TransactionCategory,
-  type TransactionTag,
   type Project,
   type Currency,
+  type ReferenceData,
 } from "../../../services/walletApi";
+import { formatCurrency as formatCurrencyUtil } from "../../../lib/utils";
 
 const Expenses: React.FC = () => {
   const [expenses, setExpenses] = useState<ExpenseType[]>([]);
   const [stats, setStats] = useState<ExpenseStats | null>(null);
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
-  const [categories, setCategories] = useState<TransactionCategory[]>([]);
+  const [referenceData, setReferenceData] = useState<ReferenceData | null>(
+    null
+  );
   const [projects, setProjects] = useState<Project[]>([]);
-  const [, setTags] = useState<TransactionTag[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [editingExpense, setEditingExpense] = useState<ExpenseType | null>(
     null
   );
+
+  // Create lookup maps for O(1) access
+  const walletMap = useMemo(() => {
+    if (!referenceData) return new Map<number, Wallet>();
+    return new Map(referenceData.wallets.map((w) => [w.id, w]));
+  }, [referenceData]);
+
+  const categoryMap = useMemo(() => {
+    if (!referenceData) return new Map<number, TransactionCategory>();
+    return new Map(referenceData.categories.map((c) => [c.id, c]));
+  }, [referenceData]);
+
+  const currencyMap = useMemo(() => {
+    if (!referenceData) return new Map<number, Currency>();
+    return new Map(referenceData.currencies.map((c) => [c.id, c]));
+  }, [referenceData]);
 
   const [formData, setFormData] = useState({
     wallet: "",
@@ -53,30 +69,19 @@ const Expenses: React.FC = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [
-        expensesData,
-        statsData,
-        walletsData,
-        currenciesData,
-        categoriesData,
-        tagsData,
-        projectsData,
-      ] = await Promise.all([
-        walletApi.getExpenses(),
-        walletApi.getExpenseStats(),
-        walletApi.getWallets(),
-        walletApi.getCurrencies(),
-        walletApi.getCategories("expense"),
-        walletApi.getTags(),
-        walletApi.getProjects(),
-      ]);
 
-      setExpenses(expensesData.results);
-      setStats(statsData);
-      setWallets(walletsData);
-      setCurrencies(currenciesData);
-      setCategories(categoriesData);
-      setTags(tagsData);
+      // Load expense stats, reference data, and projects in parallel
+      const [expenseResponse, statsResponse, refData, projectsData] =
+        await Promise.all([
+          walletApi.getExpenses(),
+          walletApi.getExpenseStats(),
+          walletApi.getReferenceData(),
+          walletApi.getProjects(),
+        ]);
+
+      setExpenses(expenseResponse.results);
+      setStats(statsResponse);
+      setReferenceData(refData);
       setProjects(projectsData);
     } catch (error) {
       console.error("Error loading expense data:", error);
@@ -136,18 +141,21 @@ const Expenses: React.FC = () => {
   const handleEdit = (expense: ExpenseType) => {
     setEditingExpense(expense);
     setFormData({
-      wallet: expense.wallet_details.id.toString(),
-      category: expense.category_details.id.toString(),
-      project: expense.project?.id.toString() || "",
-      tags: expense.tags.map((t) => t.id),
+      wallet: expense.wallet.toString(),
+      category: expense.category.toString(),
+      project: expense.project?.toString() || "",
+      tags: expense.tags || [],
       amount_original: expense.amount_original,
-      currency_original:
-        expense.currency_original?.toString() ||
-        expense.wallet_details.currency.toString(),
+      currency_original: expense.currency_original.toString(),
       description: expense.description,
       date: expense.date,
       is_recurring: expense.is_recurring,
-      recurrence_interval: expense.recurrence_interval || "",
+      recurrence_interval: expense.recurrence_type as
+        | "daily"
+        | "weekly"
+        | "monthly"
+        | "yearly"
+        | "",
       recurrence_day: expense.recurrence_day?.toString() || "",
     });
     setIsModalOpen(true);
@@ -301,56 +309,74 @@ const Expenses: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {expenses.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(item.date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {item.description}
-                      {item.is_recurring && (
-                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                          Recurring
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                        style={{
-                          backgroundColor: `${item.category_details.color}20`,
-                          color: item.category_details.color,
-                        }}
-                      >
-                        {item.category_details.name}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.wallet_details.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
-                      {formatCurrency(item.amount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEdit(item)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Edit"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {expenses.map((item) => {
+                  const wallet = walletMap.get(item.wallet);
+                  const category = categoryMap.get(item.category);
+                  const currency = currencyMap.get(item.currency_original);
+
+                  return (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(item.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {item.description}
+                        {item.is_recurring && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            Recurring
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {category && (
+                          <span
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                            style={{
+                              backgroundColor: `${category.color}20`,
+                              color: category.color,
+                            }}
+                          >
+                            {category.name}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {wallet?.name || "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
+                        {formatCurrencyUtil(
+                          parseFloat(item.amount_original),
+                          currency?.code || "RWF"
+                        )}
+                        <div className="text-xs text-gray-500 font-normal">
+                          ≈{" "}
+                          {formatCurrencyUtil(
+                            parseFloat(item.amount_rwf),
+                            "RWF"
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEdit(item)}
+                            className="text-blue-600 hover:text-blue-800"
+                            title="Edit"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="text-red-600 hover:text-red-800"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -388,9 +414,10 @@ const Expenses: React.FC = () => {
                     required
                   >
                     <option value="">Select wallet</option>
-                    {wallets.map((wallet) => (
+                    {referenceData?.wallets.map((wallet) => (
                       <option key={wallet.id} value={wallet.id}>
-                        {wallet.name} ({wallet.currency_details.symbol}
+                        {wallet.name} (
+                        {currencyMap.get(wallet.currency)?.symbol || "$"}
                         {wallet.balance})
                       </option>
                     ))}
@@ -410,11 +437,17 @@ const Expenses: React.FC = () => {
                     required
                   >
                     <option value="">Select category</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
+                    {referenceData?.categories
+                      .filter(
+                        (c) =>
+                          c.category_type === "expense" ||
+                          c.category_type === "both"
+                      )
+                      .map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -454,7 +487,7 @@ const Expenses: React.FC = () => {
                     required
                   >
                     <option value="">Select currency</option>
-                    {currencies.map((currency) => (
+                    {referenceData?.currencies.map((currency) => (
                       <option key={currency.id} value={currency.id}>
                         {currency.code} - {currency.name}
                       </option>

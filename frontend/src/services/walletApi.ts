@@ -202,7 +202,7 @@ export interface SubscriptionCreateData {
   project?: number | null;
   name: string;
   amount: string;
-  billing_cycle: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  billing_cycle: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'quarterly' | 'semi_annually';
   start_date: string;
   end_date?: string | null;
   description?: string;
