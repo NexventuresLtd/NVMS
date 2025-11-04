@@ -219,5 +219,9 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
+# Exchange Rate API Configuration
+EXCHANGE_RATE_API_KEY = config('EXCHANGE_RATE_API_KEY', default='589d2e78ed29b70fe39b0e88')
+EXCHANGE_RATE_CACHE_DURATION = 3600  # 1 hour in seconds
+
 # Custom user model (if needed later)
 # AUTH_USER_MODEL = 'authentication.CustomUser'

@@ -8,6 +8,8 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from decimal import Decimal
 from django_filters.rest_framework import DjangoFilterBackend
+import json
+from django.core.serializers.json import DjangoJSONEncoder
 
 from .models import (
     Currency, Wallet, TransactionCategory, TransactionTag,
@@ -32,6 +34,60 @@ class CurrencyViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['code', 'name']
     ordering_fields = ['code', 'name']
+    
+    @action(detail=False, methods=['post'])
+    def refresh_rates(self, request):
+        """Refresh exchange rates from live API"""
+        from .services import exchange_rate_service
+        
+        try:
+            updated_count = exchange_rate_service.refresh_currency_rates()
+            return Response({
+                'message': f'Successfully refreshed exchange rates for {updated_count} currencies',
+                'updated_count': updated_count
+            })
+        except Exception as e:
+            return Response({
+                'error': f'Failed to refresh exchange rates: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['get'])
+    def live_rate(self, request):
+        """Get live exchange rate between two currencies"""
+        from .services import exchange_rate_service
+        
+        from_currency = request.query_params.get('from')
+        to_currency = request.query_params.get('to')
+        amount = request.query_params.get('amount', '1')
+        
+        if not from_currency or not to_currency:
+            return Response({
+                'error': 'Both from and to currency parameters are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            amount_decimal = Decimal(amount)
+            rate = exchange_rate_service.get_exchange_rate(from_currency, to_currency)
+            
+            if rate is None:
+                return Response({
+                    'error': f'Could not get exchange rate for {from_currency} -> {to_currency}'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            converted = exchange_rate_service.convert_amount(amount_decimal, from_currency, to_currency)
+            
+            return Response({
+                'from_currency': from_currency,
+                'to_currency': to_currency,
+                'exchange_rate': str(rate),
+                'amount': str(amount_decimal),
+                'converted_amount': str(converted),
+                'cached': True  # Indicates this might be from cache
+            })
+        except Exception as e:
+            return Response({
+                'error': f'Error getting exchange rate: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class WalletViewSet(viewsets.ModelViewSet):
@@ -99,22 +155,24 @@ class WalletViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def summary(self, request):
-        """Get summary of all wallets"""
+        """Get summary of all wallets (totals in RWF)"""
         wallets = self.get_queryset()
         summaries = []
         
         for wallet in wallets:
-            total_income = wallet.incomes.aggregate(total=Sum('amount'))['total'] or 0
-            total_expense = wallet.expenses.aggregate(total=Sum('amount'))['total'] or 0
+            total_income = wallet.incomes.aggregate(total=Sum('amount_rwf'))['total'] or 0
+            total_expense = wallet.expenses.aggregate(total=Sum('amount_rwf'))['total'] or 0
             
             summaries.append({
                 'wallet_id': wallet.id,
                 'wallet_name': wallet.name,
                 'balance': wallet.balance,
+                'balance_rwf': wallet.balance_rwf,
                 'total_income': total_income,
                 'total_expense': total_expense,
                 'net_flow': total_income - total_expense,
-                'currency_code': wallet.currency.code
+                'currency_code': wallet.currency.code,
+                'base_currency': 'RWF'
             })
         
         serializer = WalletSummarySerializer(summaries, many=True)
@@ -183,7 +241,7 @@ class IncomeViewSet(viewsets.ModelViewSet):
             entity_type='income',
             entity_id=income.id,
             description=f"Created income: {income.title}",
-            new_data=serializer.data
+            new_data=json.loads(json.dumps(serializer.data, cls=DjangoJSONEncoder))
         )
 
     def perform_update(self, serializer):
@@ -199,7 +257,7 @@ class IncomeViewSet(viewsets.ModelViewSet):
             entity_id=income.id,
             description=f"Updated income: {income.title}",
             old_data=old_data,
-            new_data=serializer.data
+            new_data=json.loads(json.dumps(serializer.data, cls=DjangoJSONEncoder))
         )
 
     def perform_destroy(self, instance):
@@ -249,25 +307,26 @@ class IncomeViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        """Get income statistics"""
+        """Get income statistics (using RWF as base currency)"""
         today = timezone.now().date()
         incomes = self.get_queryset()
         
-        total = incomes.aggregate(total=Sum('amount'))['total'] or 0
+        total = incomes.aggregate(total=Sum('amount_rwf'))['total'] or 0
         this_month = incomes.filter(
             date__year=today.year,
             date__month=today.month
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount_rwf'))['total'] or 0
         this_year = incomes.filter(
             date__year=today.year
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount_rwf'))['total'] or 0
         count = incomes.count()
         
         return Response({
             'total': str(total),
             'this_month': str(this_month),
             'this_year': str(this_year),
-            'count': count
+            'count': count,
+            'currency': 'RWF'
         })
 
 
@@ -370,25 +429,26 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        """Get expense statistics"""
+        """Get expense statistics (using RWF as base currency)"""
         today = timezone.now().date()
         expenses = self.get_queryset()
         
-        total = expenses.aggregate(total=Sum('amount'))['total'] or 0
+        total = expenses.aggregate(total=Sum('amount_rwf'))['total'] or 0
         this_month = expenses.filter(
             date__year=today.year,
             date__month=today.month
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount_rwf'))['total'] or 0
         this_year = expenses.filter(
             date__year=today.year
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount_rwf'))['total'] or 0
         count = expenses.count()
         
         return Response({
             'total': str(total),
             'this_month': str(this_month),
             'this_year': str(this_year),
-            'count': count
+            'count': count,
+            'currency': 'RWF'
         })
 
 
@@ -475,26 +535,27 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        """Get subscription statistics"""
+        """Get subscription statistics (monthly costs in RWF)"""
         subscriptions = self.get_queryset()
         active_subscriptions = subscriptions.filter(is_active=True)
         
-        # Calculate monthly cost (converting all billing cycles to monthly equivalent)
+        # Calculate monthly cost (converting all billing cycles to monthly equivalent, using RWF amounts)
         total_monthly_cost = Decimal('0')
         for sub in active_subscriptions:
             if sub.billing_cycle == 'monthly':
-                total_monthly_cost += Decimal(sub.amount)
+                total_monthly_cost += Decimal(sub.amount_rwf)
             elif sub.billing_cycle == 'yearly':
-                total_monthly_cost += Decimal(sub.amount) / 12
+                total_monthly_cost += Decimal(sub.amount_rwf) / 12
             elif sub.billing_cycle == 'weekly':
-                total_monthly_cost += Decimal(sub.amount) * 4
+                total_monthly_cost += Decimal(sub.amount_rwf) * 4
             elif sub.billing_cycle == 'daily':
-                total_monthly_cost += Decimal(sub.amount) * 30
+                total_monthly_cost += Decimal(sub.amount_rwf) * 30
         
         return Response({
             'total_monthly_cost': str(total_monthly_cost),
             'active_count': active_subscriptions.count(),
-            'total_count': subscriptions.count()
+            'total_count': subscriptions.count(),
+            'currency': 'RWF'
         })
 
 
@@ -653,7 +714,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def monthly_report(self, request):
-        """Get monthly financial report"""
+        """Get monthly financial report (all amounts in RWF)"""
         month = int(request.query_params.get('month', timezone.now().month))
         year = int(request.query_params.get('year', timezone.now().year))
         
@@ -669,23 +730,23 @@ class AnalyticsViewSet(viewsets.ViewSet):
             date__month=month
         )
         
-        total_income = incomes.aggregate(total=Sum('amount'))['total'] or 0
-        total_expense = expenses.aggregate(total=Sum('amount'))['total'] or 0
+        total_income = incomes.aggregate(total=Sum('amount_rwf'))['total'] or 0
+        total_expense = expenses.aggregate(total=Sum('amount_rwf'))['total'] or 0
         
-        # Income by category
+        # Income by category (in RWF)
         income_by_category = {}
         for income in incomes:
             cat_name = income.category.name
-            income_by_category[cat_name] = income_by_category.get(cat_name, 0) + float(income.amount)
+            income_by_category[cat_name] = income_by_category.get(cat_name, 0) + float(income.amount_rwf)
         
-        # Expense by category
+        # Expense by category (in RWF)
         expense_by_category = {}
         for expense in expenses:
             cat_name = expense.category.name
-            expense_by_category[cat_name] = expense_by_category.get(cat_name, 0) + float(expense.amount)
+            expense_by_category[cat_name] = expense_by_category.get(cat_name, 0) + float(expense.amount_rwf)
         
-        # Top expenses
-        top_expenses = list(expenses.order_by('-amount')[:10].values('title', 'amount', 'date'))
+        # Top expenses (in RWF)
+        top_expenses = list(expenses.order_by('-amount_rwf')[:10].values('title', 'amount_rwf', 'date'))
         
         report_data = {
             'month': month,
@@ -695,7 +756,8 @@ class AnalyticsViewSet(viewsets.ViewSet):
             'net_savings': total_income - total_expense,
             'income_by_category': income_by_category,
             'expense_by_category': expense_by_category,
-            'top_expenses': top_expenses
+            'top_expenses': top_expenses,
+            'currency': 'RWF'
         }
         
         serializer = MonthlyReportSerializer(report_data)
@@ -703,15 +765,15 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def project_profitability(self, request):
-        """Analyze profitability of projects"""
+        """Analyze profitability of projects (all amounts in RWF)"""
         from apps.projects.models import Project
         
         projects = Project.objects.filter(created_by=request.user)
         profitability_data = []
         
         for project in projects:
-            total_income = project.incomes.aggregate(total=Sum('amount'))['total'] or 0
-            total_expense = project.expenses.aggregate(total=Sum('amount'))['total'] or 0
+            total_income = project.incomes.aggregate(total=Sum('amount_rwf'))['total'] or 0
+            total_expense = project.expenses.aggregate(total=Sum('amount_rwf'))['total'] or 0
             profit = total_income - total_expense
             profit_margin = (profit / total_income * 100) if total_income > 0 else 0
             
@@ -721,7 +783,8 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 'total_income': total_income,
                 'total_expense': total_expense,
                 'profit': profit,
-                'profit_margin': profit_margin
+                'profit_margin': profit_margin,
+                'currency': 'RWF'
             })
         
         serializer = ProjectProfitabilitySerializer(profitability_data, many=True)
@@ -729,7 +792,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def cash_flow(self, request):
-        """Get cash flow over time"""
+        """Get cash flow over time (all amounts in RWF)"""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         
@@ -741,18 +804,18 @@ class AnalyticsViewSet(viewsets.ViewSet):
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
         
-        # Get all transactions in date range
+        # Get all transactions in date range (using RWF amounts)
         incomes = Income.objects.filter(
             # user=request.user,
             date__gte=start_date,
             date__lte=end_date
-        ).values('date').annotate(total=Sum('amount'))
+        ).values('date').annotate(total=Sum('amount_rwf'))
         
         expenses = Expense.objects.filter(
             # user=request.user,
             date__gte=start_date,
             date__lte=end_date
-        ).values('date').annotate(total=Sum('amount'))
+        ).values('date').annotate(total=Sum('amount_rwf'))
         
         # Build daily cash flow
         cash_flow_data = []
@@ -780,26 +843,26 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def dashboard(self, request):
-        """Get dashboard overview"""
+        """Get dashboard overview (all amounts in RWF)"""
         today = timezone.now().date()
         
-        # Current month stats
+        # Current month stats (in RWF)
         current_month_income = Income.objects.filter(
             # user=request.user,
             date__year=today.year,
             date__month=today.month
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount_rwf'))['total'] or 0
         
         current_month_expense = Expense.objects.filter(
             # user=request.user,
             date__year=today.year,
             date__month=today.month
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount_rwf'))['total'] or 0
         
-        # Total wallet balance
+        # Total wallet balance (in RWF)
         total_balance = Wallet.objects.filter(
             is_active=True
-        ).aggregate(total=Sum('balance'))['total'] or 0
+        ).aggregate(total=Sum('balance_rwf'))['total'] or 0
         
         # Active budgets
         active_budgets = Budget.objects.filter(
@@ -830,7 +893,8 @@ class AnalyticsViewSet(viewsets.ViewSet):
             'total_balance': total_balance,
             'active_budgets': active_budgets,
             'active_goals': active_goals,
-            'upcoming_subscriptions': upcoming_subscriptions
+            'upcoming_subscriptions': upcoming_subscriptions,
+            'currency': 'RWF'
         })
 
 
@@ -839,39 +903,39 @@ class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get dashboard statistics"""
+        """Get dashboard statistics (all amounts in RWF)"""
         today = timezone.now().date()
         user = request.user
 
-        # Total balance across all wallets
+        # Total balance across all wallets (in RWF)
         total_balance = Wallet.objects.filter(
             is_active=True
-        ).aggregate(total=Sum('balance'))['total'] or 0
+        ).aggregate(total=Sum('balance_rwf'))['total'] or 0
 
-        # Total income (all time)
-        total_income = Income.objects.all().aggregate(total=Sum('amount'))['total'] or 0
+        # Total income (all time, in RWF)
+        total_income = Income.objects.all().aggregate(total=Sum('amount_rwf'))['total'] or 0
 
-        # Total expenses (all time)
-        total_expenses = Expense.objects.all().aggregate(total=Sum('amount'))['total'] or 0
+        # Total expenses (all time, in RWF)
+        total_expenses = Expense.objects.all().aggregate(total=Sum('amount_rwf'))['total'] or 0
 
         # Active wallets count
         active_wallets = Wallet.objects.filter(
             is_active=True
         ).count()
 
-        # Monthly income (current month)
+        # Monthly income (current month, in RWF)
         monthly_income = Income.objects.filter(
             # user=user,
             date__year=today.year,
             date__month=today.month
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount_rwf'))['total'] or 0
 
-        # Monthly expenses (current month)
+        # Monthly expenses (current month, in RWF)
         monthly_expenses = Expense.objects.filter(
             # user=user,
             date__year=today.year,
             date__month=today.month
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount_rwf'))['total'] or 0
 
         # Net monthly (income - expenses for current month)
         net_monthly = Decimal(str(monthly_income)) - Decimal(str(monthly_expenses))
@@ -883,5 +947,6 @@ class DashboardStatsView(APIView):
             'active_wallets': active_wallets,
             'monthly_income': str(monthly_income),
             'monthly_expenses': str(monthly_expenses),
-            'net_monthly': str(net_monthly)
+            'net_monthly': str(net_monthly),
+            'currency': 'RWF'
         })

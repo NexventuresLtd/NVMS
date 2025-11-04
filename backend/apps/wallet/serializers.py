@@ -32,7 +32,7 @@ class WalletSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
         fields = '__all__'
-        read_only_fields = ['balance', 'created_at', 'updated_at']
+        read_only_fields = ['balance', 'balance_rwf', 'created_at', 'updated_at']
 
     def get_total_income(self, obj):
         return sum(income.amount for income in obj.incomes.all())
@@ -85,7 +85,7 @@ class IncomeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Income
         fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at', 'next_occurrence', 'amount']
+        read_only_fields = ['created_at', 'updated_at', 'next_occurrence', 'amount', 'amount_rwf']
 
     def validate(self, data):
         # Validate recurrence settings
@@ -112,7 +112,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Expense
         fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at', 'next_occurrence', 'amount']
+        read_only_fields = ['created_at', 'updated_at', 'next_occurrence', 'amount', 'amount_rwf']
 
     def validate(self, data):
         # Validate recurrence settings
@@ -147,7 +147,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscription
         fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at', 'amount']
+        read_only_fields = ['created_at', 'updated_at', 'amount', 'amount_rwf']
 
 
 class BudgetSerializer(serializers.ModelSerializer):

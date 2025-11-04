@@ -15,7 +15,11 @@ class Currency(models.Model):
         max_digits=15, 
         decimal_places=6, 
         default=1.0,
-        help_text="Exchange rate to base currency (usually USD)"
+        help_text="Exchange rate to base currency (cached from live API)"
+    )
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Is this the base currency for exchange rates?"
     )
     is_active = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -26,6 +30,12 @@ class Currency(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one default currency
+        if self.is_default:
+            Currency.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
 
 
 class Wallet(models.Model):
@@ -57,6 +67,13 @@ class Wallet(models.Model):
         validators=[MinValueValidator(Decimal('0.00'))],
         help_text="Current balance (updated automatically with transactions)"
     )
+    balance_rwf = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Balance converted to RWF (base currency for totals)"
+    )
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -72,6 +89,26 @@ class Wallet(models.Model):
         # Set balance to initial_balance on first save if not explicitly set
         if self.pk is None and self.balance == 0 and self.initial_balance > 0:
             self.balance = self.initial_balance
+        
+        # Update balance_rwf (convert to RWF)
+        from .services import exchange_rate_service
+        if self.currency.code == 'RWF':
+            self.balance_rwf = self.balance
+        else:
+            converted = exchange_rate_service.convert_amount(
+                self.balance,
+                self.currency.code,
+                'RWF'
+            )
+            if converted is not None:
+                self.balance_rwf = converted
+            else:
+                # Fallback to database rates
+                rwf_currency = Currency.objects.filter(code='RWF').first()
+                if rwf_currency:
+                    conversion_rate = rwf_currency.exchange_rate_to_base / self.currency.exchange_rate_to_base
+                    self.balance_rwf = self.balance * Decimal(str(conversion_rate))
+        
         super().save(*args, **kwargs)
 
     def update_balance(self, amount, operation='add'):
@@ -168,6 +205,12 @@ class Income(models.Model):
         validators=[MinValueValidator(Decimal('0.01'))],
         help_text="Amount in wallet's currency (after conversion)"
     )
+    amount_rwf = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        help_text="Amount converted to RWF (base currency for totals)"
+    )
     amount_original = models.DecimalField(
         max_digits=15, 
         decimal_places=2,
@@ -224,13 +267,24 @@ class Income(models.Model):
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         
-        # Handle currency conversion
+        # Handle currency conversion using live exchange rates
         if self.amount_original and self.currency_original:
-            # If original currency is different from wallet currency, convert
             if self.currency_original.id != self.wallet.currency.id:
-                # Convert: original amount * (wallet exchange rate / original exchange rate)
-                conversion_rate = self.wallet.currency.exchange_rate_to_base / self.currency_original.exchange_rate_to_base
-                self.amount = self.amount_original * Decimal(str(conversion_rate))
+                # Use live exchange rate service
+                from .services import exchange_rate_service
+                
+                converted_amount = exchange_rate_service.convert_amount(
+                    self.amount_original,
+                    self.currency_original.code,
+                    self.wallet.currency.code
+                )
+                
+                if converted_amount is not None:
+                    self.amount = converted_amount
+                else:
+                    # Fallback to cached database rates if API fails
+                    conversion_rate = self.wallet.currency.exchange_rate_to_base / self.currency_original.exchange_rate_to_base
+                    self.amount = self.amount_original * Decimal(str(conversion_rate))
             else:
                 # Same currency, no conversion needed
                 self.amount = self.amount_original
@@ -238,6 +292,25 @@ class Income(models.Model):
             # If no original amount specified, assume amount is in wallet currency
             self.amount_original = self.amount
             self.currency_original = self.wallet.currency
+        
+        # Convert amount to RWF for totals
+        from .services import exchange_rate_service
+        if self.wallet.currency.code == 'RWF':
+            self.amount_rwf = self.amount
+        else:
+            converted_rwf = exchange_rate_service.convert_amount(
+                self.amount,
+                self.wallet.currency.code,
+                'RWF'
+            )
+            if converted_rwf is not None:
+                self.amount_rwf = converted_rwf
+            else:
+                # Fallback to database rates
+                rwf_currency = Currency.objects.filter(code='RWF').first()
+                if rwf_currency:
+                    conversion_rate = rwf_currency.exchange_rate_to_base / self.wallet.currency.exchange_rate_to_base
+                    self.amount_rwf = self.amount * Decimal(str(conversion_rate))
         
         super().save(*args, **kwargs)
         
@@ -302,10 +375,16 @@ class Expense(models.Model):
     
     title = models.CharField(max_length=200)
     amount = models.DecimalField(
-        max_digits=15, 
+        max_digits=15,
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.01'))],
         help_text="Amount in wallet's currency (after conversion)"
+    )
+    amount_rwf = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        help_text="Amount converted to RWF (base currency for totals)"
     )
     amount_original = models.DecimalField(
         max_digits=15, 
@@ -363,13 +442,24 @@ class Expense(models.Model):
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         
-        # Handle currency conversion
+        # Handle currency conversion using live exchange rates
         if self.amount_original and self.currency_original:
-            # If original currency is different from wallet currency, convert
             if self.currency_original.id != self.wallet.currency.id:
-                # Convert: original amount * (wallet exchange rate / original exchange rate)
-                conversion_rate = self.wallet.currency.exchange_rate_to_base / self.currency_original.exchange_rate_to_base
-                self.amount = self.amount_original * Decimal(str(conversion_rate))
+                # Use live exchange rate service
+                from .services import exchange_rate_service
+                
+                converted_amount = exchange_rate_service.convert_amount(
+                    self.amount_original,
+                    self.currency_original.code,
+                    self.wallet.currency.code
+                )
+                
+                if converted_amount is not None:
+                    self.amount = converted_amount
+                else:
+                    # Fallback to cached database rates if API fails
+                    conversion_rate = self.wallet.currency.exchange_rate_to_base / self.currency_original.exchange_rate_to_base
+                    self.amount = self.amount_original * Decimal(str(conversion_rate))
             else:
                 # Same currency, no conversion needed
                 self.amount = self.amount_original
@@ -377,6 +467,25 @@ class Expense(models.Model):
             # If no original amount specified, assume amount is in wallet currency
             self.amount_original = self.amount
             self.currency_original = self.wallet.currency
+        
+        # Convert amount to RWF for totals
+        from .services import exchange_rate_service
+        if self.wallet.currency.code == 'RWF':
+            self.amount_rwf = self.amount
+        else:
+            converted_rwf = exchange_rate_service.convert_amount(
+                self.amount,
+                self.wallet.currency.code,
+                'RWF'
+            )
+            if converted_rwf is not None:
+                self.amount_rwf = converted_rwf
+            else:
+                # Fallback to database rates
+                rwf_currency = Currency.objects.filter(code='RWF').first()
+                if rwf_currency:
+                    conversion_rate = rwf_currency.exchange_rate_to_base / self.wallet.currency.exchange_rate_to_base
+                    self.amount_rwf = self.amount * Decimal(str(conversion_rate))
         
         super().save(*args, **kwargs)
         
@@ -437,10 +546,16 @@ class Subscription(models.Model):
     
     name = models.CharField(max_length=200)
     amount = models.DecimalField(
-        max_digits=15, 
+        max_digits=15,
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.01'))],
         help_text="Amount in wallet's currency (after conversion)"
+    )
+    amount_rwf = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        help_text="Amount converted to RWF (base currency for totals)"
     )
     amount_original = models.DecimalField(
         max_digits=15, 
@@ -487,6 +602,54 @@ class Subscription(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.wallet.currency.symbol}{self.amount}/{self.get_billing_cycle_display()}"
+
+    def save(self, *args, **kwargs):
+        # Handle currency conversion using live exchange rates
+        if self.amount_original and self.currency_original:
+            if self.currency_original.id != self.wallet.currency.id:
+                # Use live exchange rate service
+                from .services import exchange_rate_service
+                
+                converted_amount = exchange_rate_service.convert_amount(
+                    self.amount_original,
+                    self.currency_original.code,
+                    self.wallet.currency.code
+                )
+                
+                if converted_amount is not None:
+                    self.amount = converted_amount
+                else:
+                    # Fallback to cached database rates if API fails
+                    conversion_rate = self.wallet.currency.exchange_rate_to_base / self.currency_original.exchange_rate_to_base
+                    self.amount = self.amount_original * Decimal(str(conversion_rate))
+            else:
+                # Same currency, no conversion needed
+                self.amount = self.amount_original
+        elif not self.amount_original:
+            # If no original amount specified, assume amount is in wallet currency
+            self.amount_original = self.amount
+            self.currency_original = self.wallet.currency
+        
+        # Convert amount to RWF for totals
+        from .services import exchange_rate_service
+        if self.wallet.currency.code == 'RWF':
+            self.amount_rwf = self.amount
+        else:
+            converted_rwf = exchange_rate_service.convert_amount(
+                self.amount,
+                self.wallet.currency.code,
+                'RWF'
+            )
+            if converted_rwf is not None:
+                self.amount_rwf = converted_rwf
+            else:
+                # Fallback to database rates
+                rwf_currency = Currency.objects.filter(code='RWF').first()
+                if rwf_currency:
+                    conversion_rate = rwf_currency.exchange_rate_to_base / self.wallet.currency.exchange_rate_to_base
+                    self.amount_rwf = self.amount * Decimal(str(conversion_rate))
+        
+        super().save(*args, **kwargs)
 
     def calculate_next_billing_date(self):
         """Calculate next billing date based on billing cycle"""

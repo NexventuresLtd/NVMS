@@ -199,7 +199,7 @@ const WalletAccounts: React.FC = () => {
         <div className="flex gap-3">
           <button
             onClick={() => setIsTransferModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-accent-primary text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <ArrowRightLeft className="h-5 w-5 mr-2" />
             Transfer Funds
