@@ -26,13 +26,41 @@ api.interceptors.request.use(
 // Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Redirect to login or refresh token
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If 401 and we haven't retried yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        try {
+          // Call DRF SimpleJWT refresh endpoint
+          const response = await api.post('/api/auth/refresh/', {
+            refresh: refreshToken,
+          });
+
+          const newAccessToken = response.data.access;
+
+          // Save new access token
+          localStorage.setItem('access_token', newAccessToken);
+
+          // Update the Authorization header and retry original request
+          originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+          return api(originalRequest);
+        } catch (refreshError) {
+          console.error('Refresh token failed', refreshError);
+          // If refresh fails, log out
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          window.location.href = '/login';
+        }
+      } else {
+        window.location.href = '/login';
+      }
     }
+
     return Promise.reject(error);
   }
 );

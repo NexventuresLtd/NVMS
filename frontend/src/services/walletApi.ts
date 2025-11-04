@@ -12,20 +12,23 @@ export interface Currency {
 export interface Wallet {
   id: number;
   name: string;
-  wallet_type: 'savings' | 'current' | 'cash' | 'investment' | 'other';
+  wallet_type: 'savings' | 'current' | 'cash' | 'mobile_money' | 'credit_card' | 'investment' | 'other';
+  initial_balance: string;
   balance: string;
   currency: number;
   currency_details: Currency;
-  description?: string;
+  description: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  total_income?: string;
+  total_expense?: string;
 }
 
 export interface WalletCreateData {
   name: string;
-  wallet_type: 'savings' | 'current' | 'cash' | 'investment' | 'other';
-  balance: string;
+  wallet_type: 'savings' | 'current' | 'cash' | 'mobile_money' | 'credit_card' | 'investment' | 'other';
+  initial_balance: string;
   currency: number;
   description?: string;
   is_active?: boolean;
@@ -63,7 +66,11 @@ export interface Income {
   category_details: TransactionCategory;
   tags: TransactionTag[];
   project?: Project | null;
+  title: string;
   amount: string;
+  amount_original: string;
+  currency_original: number;
+  currency_original_details?: Currency;
   description: string;
   date: string;
   is_recurring: boolean;
@@ -75,11 +82,13 @@ export interface Income {
 }
 
 export interface IncomeCreateData {
+  title: string;
   wallet: number;
   category: number;
   tags?: number[];
   project?: number | string | null;
-  amount: string;
+  amount_original: string;
+  currency_original: number;
   description: string;
   date: string;
   is_recurring?: boolean;
@@ -89,11 +98,17 @@ export interface IncomeCreateData {
 
 export interface Expense {
   id: number;
-  wallet: Wallet;
-  category: TransactionCategory;
+  wallet: number;
+  wallet_details: Wallet;
+  category: number;
+  category_details: TransactionCategory;
   tags: TransactionTag[];
   project?: Project | null;
+  title: string;
   amount: string;
+  amount_original: string;
+  currency_original: number;
+  currency_original_details?: Currency;
   description: string;
   date: string;
   is_recurring: boolean;
@@ -105,11 +120,13 @@ export interface Expense {
 }
 
 export interface ExpenseCreateData {
+  title: string;
   wallet: number;
   category: number;
   tags?: number[];
   project?: number | null;
-  amount: string;
+  amount_original: string;
+  currency_original: number;
   description: string;
   date: string;
   is_recurring?: boolean;
@@ -479,6 +496,19 @@ class WalletApi {
   // Dashboard
   async getDashboardStats(): Promise<DashboardStats> {
     const response = await api.get('/wallet/dashboard/stats/');
+    return response.data;
+  }
+
+  // Transfer between wallets
+  async transferFunds(
+    sourceWalletId: number,
+    targetWalletId: number,
+    amount: string
+  ): Promise<{ message: string; source_balance: string; target_balance: string }> {
+    const response = await api.post(`/wallet/wallets/${sourceWalletId}/transfer/`, {
+      target_wallet_id: targetWalletId,
+      amount: amount,
+    });
     return response.data;
   }
 }

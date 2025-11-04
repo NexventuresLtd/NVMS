@@ -15,12 +15,14 @@ import walletApi, {
   type TransactionCategory,
   type TransactionTag,
   type Project,
+  type Currency,
 } from "../../../services/walletApi";
 
 const Income: React.FC = () => {
   const [income, setIncome] = useState<IncomeType[]>([]);
   const [stats, setStats] = useState<IncomeStats | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [categories, setCategories] = useState<TransactionCategory[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [, setTags] = useState<TransactionTag[]>([]);
@@ -33,7 +35,8 @@ const Income: React.FC = () => {
     category: "",
     project: "",
     tags: [] as number[],
-    amount: "",
+    amount_original: "",
+    currency_original: "",
     description: "",
     date: new Date().toISOString().split("T")[0],
     is_recurring: false,
@@ -53,6 +56,7 @@ const Income: React.FC = () => {
         walletApi.getIncome(),
         walletApi.getIncomeStats(),
         walletApi.getWallets(),
+        walletApi.getCurrencies(),
         walletApi.getCategories("income"),
         walletApi.getTags(),
         walletApi.getProjects(),
@@ -65,16 +69,19 @@ const Income: React.FC = () => {
         results[1].status === "fulfilled" ? results[1].value : null;
       const walletsData =
         results[2].status === "fulfilled" ? results[2].value : [];
-      const categoriesData =
+      const currenciesData =
         results[3].status === "fulfilled" ? results[3].value : [];
-      const tagsData =
+      const categoriesData =
         results[4].status === "fulfilled" ? results[4].value : [];
-      const projectsData =
+      const tagsData =
         results[5].status === "fulfilled" ? results[5].value : [];
+      const projectsData =
+        results[6].status === "fulfilled" ? results[6].value : [];
 
       setIncome(incomeData);
       setStats(statsData);
       setWallets(walletsData);
+      setCurrencies(currenciesData);
       setCategories(categoriesData);
       setTags(tagsData);
       setProjects(projectsData);
@@ -96,12 +103,13 @@ const Income: React.FC = () => {
     e.preventDefault();
     try {
       const payload = {
-        title: `Income of ${formData.amount} for project ${formData.project}`,
+        title: `Income of ${formData.amount_original} for project ${formData.project}`,
         wallet: parseInt(formData.wallet),
         category: parseInt(formData.category),
         project: formData.project ?? null,
         tags: formData.tags,
-        amount: formData.amount,
+        amount_original: formData.amount_original,
+        currency_original: parseInt(formData.currency_original),
         description: formData.description,
         date: formData.date,
         is_recurring: formData.is_recurring,
@@ -146,7 +154,10 @@ const Income: React.FC = () => {
       category: income.category_details.id.toString(),
       project: income.project?.id.toString() || "",
       tags: income.tags.map((t) => t.id),
-      amount: income.amount,
+      amount_original: income.amount_original,
+      currency_original:
+        income.currency_original?.toString() ||
+        income.wallet_details.currency.toString(),
       description: income.description,
       date: income.date,
       is_recurring: income.is_recurring,
@@ -164,7 +175,8 @@ const Income: React.FC = () => {
       category: "",
       project: "",
       tags: [],
-      amount: "",
+      amount_original: "",
+      currency_original: "",
       description: "",
       date: new Date().toISOString().split("T")[0],
       is_recurring: false,
@@ -442,14 +454,41 @@ const Income: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Currency *
+                  </label>
+                  <select
+                    value={formData.currency_original}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        currency_original: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  >
+                    <option value="">Select currency</option>
+                    {currencies.map((currency) => (
+                      <option key={currency.id} value={currency.id}>
+                        {currency.code} - {currency.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Amount *
                   </label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.amount}
+                    value={formData.amount_original}
                     onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
+                      setFormData({
+                        ...formData,
+                        amount_original: e.target.value,
+                      })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
                     placeholder="0.00"

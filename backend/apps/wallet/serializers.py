@@ -79,12 +79,13 @@ class IncomeSerializer(serializers.ModelSerializer):
     tags_details = TransactionTagSerializer(source='tags', many=True, read_only=True)
     user_details = UserSerializer(source='user', read_only=True)
     created_by_details = UserSerializer(source='created_by', read_only=True)
+    currency_original_details = CurrencySerializer(source='currency_original', read_only=True)
     recurrence_type_display = serializers.CharField(source='get_recurrence_type_display', read_only=True)
     
     class Meta:
         model = Income
         fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at', 'next_occurrence']
+        read_only_fields = ['created_at', 'updated_at', 'next_occurrence', 'amount']
 
     def validate(self, data):
         # Validate recurrence settings
@@ -105,12 +106,13 @@ class ExpenseSerializer(serializers.ModelSerializer):
     tags_details = TransactionTagSerializer(source='tags', many=True, read_only=True)
     user_details = UserSerializer(source='user', read_only=True)
     created_by_details = UserSerializer(source='created_by', read_only=True)
+    currency_original_details = CurrencySerializer(source='currency_original', read_only=True)
     recurrence_type_display = serializers.CharField(source='get_recurrence_type_display', read_only=True)
     
     class Meta:
         model = Expense
         fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at', 'next_occurrence']
+        read_only_fields = ['created_at', 'updated_at', 'next_occurrence', 'amount']
 
     def validate(self, data):
         # Validate recurrence settings
@@ -134,6 +136,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     wallet_details = WalletSerializer(source='wallet', read_only=True)
     category_details = TransactionCategorySerializer(source='category', read_only=True)
     user_details = UserSerializer(source='user', read_only=True)
+    currency_original_details = CurrencySerializer(source='currency_original', read_only=True)
     billing_cycle_display = serializers.CharField(source='get_billing_cycle_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     
@@ -144,7 +147,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscription
         fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'amount']
 
 
 class BudgetSerializer(serializers.ModelSerializer):

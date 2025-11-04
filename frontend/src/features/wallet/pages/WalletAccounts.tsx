@@ -6,6 +6,7 @@ import {
   Trash2,
   X,
   Wallet as WalletIcon,
+  ArrowRightLeft,
 } from "lucide-react";
 import walletApi, {
   type Wallet,
@@ -16,6 +17,7 @@ const WalletAccounts: React.FC = () => {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [editingWallet, setEditingWallet] = useState<Wallet | null>(null);
 
@@ -25,12 +27,20 @@ const WalletAccounts: React.FC = () => {
       | "savings"
       | "current"
       | "cash"
+      | "mobile_money"
+      | "credit_card"
       | "investment"
       | "other",
-    balance: "0.00",
+    initial_balance: "0.00",
     currency: "",
     description: "",
     is_active: true,
+  });
+
+  const [transferData, setTransferData] = useState({
+    source_wallet: "",
+    target_wallet: "",
+    amount: "",
   });
 
   useEffect(() => {
@@ -60,7 +70,7 @@ const WalletAccounts: React.FC = () => {
       const payload = {
         name: formData.name,
         wallet_type: formData.wallet_type,
-        balance: formData.balance,
+        initial_balance: formData.initial_balance,
         currency: parseInt(formData.currency),
         description: formData.description,
         is_active: formData.is_active,
@@ -76,6 +86,24 @@ const WalletAccounts: React.FC = () => {
       handleCloseModal();
     } catch (error) {
       console.error("Error saving wallet:", error);
+    }
+  };
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await walletApi.transferFunds(
+        parseInt(transferData.source_wallet),
+        parseInt(transferData.target_wallet),
+        transferData.amount
+      );
+
+      await loadData();
+      handleCloseTransferModal();
+      alert("Transfer completed successfully!");
+    } catch (error) {
+      console.error("Error transferring funds:", error);
+      alert("Transfer failed. Please check your balance and try again.");
     }
   };
 
@@ -95,7 +123,7 @@ const WalletAccounts: React.FC = () => {
     setFormData({
       name: wallet.name,
       wallet_type: wallet.wallet_type,
-      balance: wallet.balance,
+      initial_balance: wallet.initial_balance,
       currency: wallet.currency_details.id.toString(),
       description: wallet.description || "",
       is_active: wallet.is_active,
@@ -109,10 +137,19 @@ const WalletAccounts: React.FC = () => {
     setFormData({
       name: "",
       wallet_type: "current",
-      balance: "0.00",
+      initial_balance: "0.00",
       currency: "",
       description: "",
       is_active: true,
+    });
+  };
+
+  const handleCloseTransferModal = () => {
+    setIsTransferModalOpen(false);
+    setTransferData({
+      source_wallet: "",
+      target_wallet: "",
+      amount: "",
     });
   };
 
@@ -131,8 +168,12 @@ const WalletAccounts: React.FC = () => {
         return "bg-blue-100 text-blue-800";
       case "cash":
         return "bg-yellow-100 text-yellow-800";
-      case "investment":
+      case "mobile_money":
         return "bg-purple-100 text-purple-800";
+      case "credit_card":
+        return "bg-red-100 text-red-800";
+      case "investment":
+        return "bg-indigo-100 text-indigo-800";
       case "other":
         return "bg-gray-100 text-gray-800";
       default:
@@ -155,13 +196,22 @@ const WalletAccounts: React.FC = () => {
             Manage your accounts and balances
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Add Wallet
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setIsTransferModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <ArrowRightLeft className="h-5 w-5 mr-2" />
+            Transfer Funds
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Add Wallet
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -223,19 +273,34 @@ const WalletAccounts: React.FC = () => {
                         )}`}
                       >
                         {wallet.wallet_type.charAt(0).toUpperCase() +
-                          wallet.wallet_type.slice(1)}
+                          wallet.wallet_type.slice(1).replace("_", " ")}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mb-4">
-                  <p className="text-sm text-gray-500">Balance</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(wallet.balance, wallet.currency_details.symbol)}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {wallet.currency_details.name} ({wallet.currency_details.code})
+                <div className="space-y-3 mb-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Current Balance</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {formatCurrency(
+                        wallet.balance,
+                        wallet.currency_details.symbol
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Initial Balance:</span>
+                    <span className="font-medium text-gray-700">
+                      {formatCurrency(
+                        wallet.initial_balance,
+                        wallet.currency_details.symbol
+                      )}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {wallet.currency_details.name} (
+                    {wallet.currency_details.code})
                   </p>
                 </div>
 
@@ -319,6 +384,8 @@ const WalletAccounts: React.FC = () => {
                     <option value="current">Current</option>
                     <option value="savings">Savings</option>
                     <option value="cash">Cash</option>
+                    <option value="mobile_money">Mobile Money</option>
+                    <option value="credit_card">Credit Card</option>
                     <option value="investment">Investment</option>
                     <option value="other">Other</option>
                   </select>
@@ -331,14 +398,20 @@ const WalletAccounts: React.FC = () => {
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.balance}
+                    value={formData.initial_balance}
                     onChange={(e) =>
-                      setFormData({ ...formData, balance: e.target.value })
+                      setFormData({
+                        ...formData,
+                        initial_balance: e.target.value,
+                      })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
                     placeholder="0.00"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Starting balance when wallet was created
+                  </p>
                 </div>
 
                 <div>
@@ -407,6 +480,124 @@ const WalletAccounts: React.FC = () => {
                   className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
                 >
                   {editingWallet ? "Update" : "Create"} Wallet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Funds Modal */}
+      {isTransferModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Transfer Funds
+              </h2>
+              <button
+                onClick={handleCloseTransferModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleTransfer} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  From Wallet *
+                </label>
+                <select
+                  value={transferData.source_wallet}
+                  onChange={(e) =>
+                    setTransferData({
+                      ...transferData,
+                      source_wallet: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                  required
+                >
+                  <option value="">Select source wallet</option>
+                  {wallets
+                    .filter((w) => w.is_active)
+                    .map((wallet) => (
+                      <option key={wallet.id} value={wallet.id}>
+                        {wallet.name} -{" "}
+                        {formatCurrency(
+                          wallet.balance,
+                          wallet.currency_details.symbol
+                        )}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  To Wallet *
+                </label>
+                <select
+                  value={transferData.target_wallet}
+                  onChange={(e) =>
+                    setTransferData({
+                      ...transferData,
+                      target_wallet: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                  required
+                >
+                  <option value="">Select destination wallet</option>
+                  {wallets
+                    .filter(
+                      (w) =>
+                        w.is_active &&
+                        w.id.toString() !== transferData.source_wallet
+                    )
+                    .map((wallet) => (
+                      <option key={wallet.id} value={wallet.id}>
+                        {wallet.name} -{" "}
+                        {formatCurrency(
+                          wallet.balance,
+                          wallet.currency_details.symbol
+                        )}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={transferData.amount}
+                  onChange={(e) =>
+                    setTransferData({ ...transferData, amount: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={handleCloseTransferModal}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Transfer
                 </button>
               </div>
             </form>

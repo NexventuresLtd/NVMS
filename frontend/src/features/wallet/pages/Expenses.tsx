@@ -15,12 +15,14 @@ import walletApi, {
   type TransactionCategory,
   type TransactionTag,
   type Project,
+  type Currency,
 } from "../../../services/walletApi";
 
 const Expenses: React.FC = () => {
   const [expenses, setExpenses] = useState<ExpenseType[]>([]);
   const [stats, setStats] = useState<ExpenseStats | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [categories, setCategories] = useState<TransactionCategory[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [, setTags] = useState<TransactionTag[]>([]);
@@ -35,7 +37,8 @@ const Expenses: React.FC = () => {
     category: "",
     project: "",
     tags: [] as number[],
-    amount: "",
+    amount_original: "",
+    currency_original: "",
     description: "",
     date: new Date().toISOString().split("T")[0],
     is_recurring: false,
@@ -54,6 +57,7 @@ const Expenses: React.FC = () => {
         expensesData,
         statsData,
         walletsData,
+        currenciesData,
         categoriesData,
         tagsData,
         projectsData,
@@ -61,6 +65,7 @@ const Expenses: React.FC = () => {
         walletApi.getExpenses(),
         walletApi.getExpenseStats(),
         walletApi.getWallets(),
+        walletApi.getCurrencies(),
         walletApi.getCategories("expense"),
         walletApi.getTags(),
         walletApi.getProjects(),
@@ -69,6 +74,7 @@ const Expenses: React.FC = () => {
       setExpenses(expensesData.results);
       setStats(statsData);
       setWallets(walletsData);
+      setCurrencies(currenciesData);
       setCategories(categoriesData);
       setTags(tagsData);
       setProjects(projectsData);
@@ -83,11 +89,13 @@ const Expenses: React.FC = () => {
     e.preventDefault();
     try {
       const payload = {
+        title: `Expense of ${formData.amount_original} for project ${formData.project}`,
         wallet: parseInt(formData.wallet),
         category: parseInt(formData.category),
         project: formData.project ? parseInt(formData.project) : null,
         tags: formData.tags,
-        amount: formData.amount,
+        amount_original: formData.amount_original,
+        currency_original: parseInt(formData.currency_original),
         description: formData.description,
         date: formData.date,
         is_recurring: formData.is_recurring,
@@ -128,11 +136,14 @@ const Expenses: React.FC = () => {
   const handleEdit = (expense: ExpenseType) => {
     setEditingExpense(expense);
     setFormData({
-      wallet: expense.wallet.id.toString(),
-      category: expense.category.id.toString(),
+      wallet: expense.wallet_details.id.toString(),
+      category: expense.category_details.id.toString(),
       project: expense.project?.id.toString() || "",
       tags: expense.tags.map((t) => t.id),
-      amount: expense.amount,
+      amount_original: expense.amount_original,
+      currency_original:
+        expense.currency_original?.toString() ||
+        expense.wallet_details.currency.toString(),
       description: expense.description,
       date: expense.date,
       is_recurring: expense.is_recurring,
@@ -150,7 +161,8 @@ const Expenses: React.FC = () => {
       category: "",
       project: "",
       tags: [],
-      amount: "",
+      amount_original: "",
+      currency_original: "",
       description: "",
       date: new Date().toISOString().split("T")[0],
       is_recurring: false,
@@ -306,15 +318,15 @@ const Expenses: React.FC = () => {
                       <span
                         className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
                         style={{
-                          backgroundColor: `${item.category.color}20`,
-                          color: item.category.color,
+                          backgroundColor: `${item.category_details.color}20`,
+                          color: item.category_details.color,
                         }}
                       >
-                        {item.category.name}
+                        {item.category_details.name}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.wallet.name}
+                      {item.wallet_details.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
                       {formatCurrency(item.amount)}
@@ -428,14 +440,41 @@ const Expenses: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Currency *
+                  </label>
+                  <select
+                    value={formData.currency_original}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        currency_original: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  >
+                    <option value="">Select currency</option>
+                    {currencies.map((currency) => (
+                      <option key={currency.id} value={currency.id}>
+                        {currency.code} - {currency.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Amount *
                   </label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.amount}
+                    value={formData.amount_original}
                     onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
+                      setFormData({
+                        ...formData,
+                        amount_original: e.target.value,
+                      })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
                     placeholder="0.00"

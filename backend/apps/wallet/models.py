@@ -40,15 +40,22 @@ class Wallet(models.Model):
         ('other', 'Other'),
     ]
 
-    # user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wallets')
     name = models.CharField(max_length=100)
     wallet_type = models.CharField(max_length=20, choices=WALLET_TYPES, default='current')
     currency = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name='wallets')
+    initial_balance = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        default=0,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Initial balance when wallet was created"
+    )
     balance = models.DecimalField(
         max_digits=15, 
         decimal_places=2, 
         default=0,
-        validators=[MinValueValidator(Decimal('0.00'))]
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Current balance (updated automatically with transactions)"
     )
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
@@ -60,6 +67,12 @@ class Wallet(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_wallet_type_display()}) - {self.currency.symbol}{self.balance}"
+
+    def save(self, *args, **kwargs):
+        # Set balance to initial_balance on first save if not explicitly set
+        if self.pk is None and self.balance == 0 and self.initial_balance > 0:
+            self.balance = self.initial_balance
+        super().save(*args, **kwargs)
 
     def update_balance(self, amount, operation='add'):
         """Update wallet balance with given amount"""
@@ -152,7 +165,24 @@ class Income(models.Model):
     amount = models.DecimalField(
         max_digits=15, 
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.01'))],
+        help_text="Amount in wallet's currency (after conversion)"
+    )
+    amount_original = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        null=True,
+        blank=True,
+        help_text="Original amount before currency conversion"
+    )
+    currency_original = models.ForeignKey(
+        Currency,
+        on_delete=models.PROTECT,
+        related_name='income_originals',
+        null=True,
+        blank=True,
+        help_text="Original currency before conversion"
     )
     category = models.ForeignKey(
         TransactionCategory, 
@@ -193,6 +223,22 @@ class Income(models.Model):
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
+        
+        # Handle currency conversion
+        if self.amount_original and self.currency_original:
+            # If original currency is different from wallet currency, convert
+            if self.currency_original.id != self.wallet.currency.id:
+                # Convert: original amount * (wallet exchange rate / original exchange rate)
+                conversion_rate = self.wallet.currency.exchange_rate_to_base / self.currency_original.exchange_rate_to_base
+                self.amount = self.amount_original * Decimal(str(conversion_rate))
+            else:
+                # Same currency, no conversion needed
+                self.amount = self.amount_original
+        elif not self.amount_original:
+            # If no original amount specified, assume amount is in wallet currency
+            self.amount_original = self.amount
+            self.currency_original = self.wallet.currency
+        
         super().save(*args, **kwargs)
         
         # Update wallet balance for new income
@@ -258,7 +304,24 @@ class Expense(models.Model):
     amount = models.DecimalField(
         max_digits=15, 
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.01'))],
+        help_text="Amount in wallet's currency (after conversion)"
+    )
+    amount_original = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        null=True,
+        blank=True,
+        help_text="Original amount before currency conversion"
+    )
+    currency_original = models.ForeignKey(
+        Currency,
+        on_delete=models.PROTECT,
+        related_name='expense_originals',
+        null=True,
+        blank=True,
+        help_text="Original currency before conversion"
     )
     category = models.ForeignKey(
         TransactionCategory, 
@@ -299,6 +362,22 @@ class Expense(models.Model):
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
+        
+        # Handle currency conversion
+        if self.amount_original and self.currency_original:
+            # If original currency is different from wallet currency, convert
+            if self.currency_original.id != self.wallet.currency.id:
+                # Convert: original amount * (wallet exchange rate / original exchange rate)
+                conversion_rate = self.wallet.currency.exchange_rate_to_base / self.currency_original.exchange_rate_to_base
+                self.amount = self.amount_original * Decimal(str(conversion_rate))
+            else:
+                # Same currency, no conversion needed
+                self.amount = self.amount_original
+        elif not self.amount_original:
+            # If no original amount specified, assume amount is in wallet currency
+            self.amount_original = self.amount
+            self.currency_original = self.wallet.currency
+        
         super().save(*args, **kwargs)
         
         # Update wallet balance for new expense
@@ -360,7 +439,24 @@ class Subscription(models.Model):
     amount = models.DecimalField(
         max_digits=15, 
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.01'))],
+        help_text="Amount in wallet's currency (after conversion)"
+    )
+    amount_original = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        null=True,
+        blank=True,
+        help_text="Original amount before currency conversion"
+    )
+    currency_original = models.ForeignKey(
+        Currency,
+        on_delete=models.PROTECT,
+        related_name='subscription_originals',
+        null=True,
+        blank=True,
+        help_text="Original currency before conversion"
     )
     billing_cycle = models.CharField(max_length=20, choices=BILLING_CYCLES)
     category = models.ForeignKey(
