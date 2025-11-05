@@ -113,6 +113,7 @@ class Wallet(models.Model):
 
     def update_balance(self, amount, operation='add'):
         """Update wallet balance with given amount"""
+        amount = abs(amount)
         if operation == 'add':
             self.balance += amount
         elif operation == 'subtract':
@@ -583,6 +584,7 @@ class Subscription(models.Model):
     start_date = models.DateField()
     next_billing_date = models.DateField()
     end_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     notify_days_before = models.IntegerField(

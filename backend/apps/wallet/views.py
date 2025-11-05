@@ -278,18 +278,22 @@ class IncomeViewSet(viewsets.ModelViewSet):
         serializer.save()
         
         # Log update
-        income = serializer.instance
+        income: Income = serializer.instance
+        income.wallet.update_balance(
+            Decimal(serializer.data['amount']) - Decimal(old_data['amount']),
+            'add' if Decimal(serializer.data['amount']) > Decimal(old_data['amount']) else 'subtract'
+        )
         TransactionHistory.objects.create(
             user=self.request.user,
             action='update',
             entity_type='income',
             entity_id=income.id,
             description=f"Updated income: {income.title}",
-            old_data=old_data,
+            old_data=json.loads(json.dumps(old_data, cls=DjangoJSONEncoder)),
             new_data=json.loads(json.dumps(serializer.data, cls=DjangoJSONEncoder))
         )
 
-    def perform_destroy(self, instance):
+    def perform_destroy(self, instance: Income):
         # Log deletion
         TransactionHistory.objects.create(
             user=self.request.user,
@@ -299,6 +303,7 @@ class IncomeViewSet(viewsets.ModelViewSet):
             description=f"Deleted income: {instance.title}",
             old_data=json.dumps(IncomeSerializer(instance).data, cls=DjangoJSONEncoder)
         )
+        instance.wallet.update_balance(instance.amount, 'subtract')
         instance.delete()
 
     @action(detail=False, methods=['post'])
@@ -398,7 +403,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             entity_type='expense',
             entity_id=expense.id,
             description=f"Created expense: {expense.title}",
-            new_data=json.dumps(json.loads(serializer.data, cls=DjangoJSONEncoder))
+            new_data=json.loads(json.dumps(serializer.data, cls=DjangoJSONEncoder))
         )
 
     def perform_update(self, serializer):
@@ -407,6 +412,10 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         
         # Log update
         expense = serializer.instance
+        expense.wallet.update_balance(
+            Decimal(old_data['amount']) - Decimal(serializer.data['amount']),
+            'add' if Decimal(serializer.data['amount']) < Decimal(old_data['amount']) else 'subtract'
+        )
         TransactionHistory.objects.create(
             user=self.request.user,
             action='update',
@@ -427,6 +436,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             description=f"Deleted expense: {instance.title}",
             old_data=json.dumps(ExpenseSerializer(instance).data, cls=DjangoJSONEncoder)
         )
+        instance.wallet.update_balance(instance.amount, 'add')
         instance.delete()
 
     @action(detail=False, methods=['post'])

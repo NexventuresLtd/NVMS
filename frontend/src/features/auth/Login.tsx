@@ -6,7 +6,7 @@ import {
 } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
-import authApi from "../../services/authApi";
+import { useAuth } from "../../contexts/AuthContext";
 
 export const Login: React.FC = () => {
   const [credentials, setCredentials] = useState({
@@ -16,6 +16,7 @@ export const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +24,7 @@ export const Login: React.FC = () => {
     setError("");
 
     try {
-      await authApi.login(credentials);
+      await login(credentials.username, credentials.password);
       navigate("/dashboard");
     } catch (err: any) {
       console.error("Login error:", err);

@@ -216,11 +216,7 @@ const WalletAccounts: React.FC = () => {
               Total Balance
             </p>
             <p className="text-4xl font-bold mt-2">
-              $
-              {totalBalance.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(totalBalance, "RWF")}
             </p>
             <p className="text-sm text-primary-100 mt-2">
               {wallets.length} active wallet{wallets.length !== 1 ? "s" : ""}
