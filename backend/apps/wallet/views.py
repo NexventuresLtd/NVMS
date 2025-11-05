@@ -125,6 +125,28 @@ class WalletViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Wallet.objects.all()
 
+    def perform_update(self, serializer):
+        old_data = WalletSerializer(self.get_object()).data
+        serializer.save()
+        
+        # Log update
+        wallet: Wallet = serializer.instance
+        if (wallet.initial_balance != Decimal(old_data['initial_balance'])):
+            # Adjust balance based on change in initial balance
+            difference = wallet.initial_balance - Decimal(old_data['initial_balance'])
+            operation = 'add' if difference > 0 else 'subtract'
+            wallet.update_balance(abs(difference), operation)
+
+        TransactionHistory.objects.create(
+            user=self.request.user,
+            action='update',
+            entity_type='wallet',
+            entity_id=wallet.id,
+            description=f"Updated wallet: {wallet.name}",
+            old_data=json.loads(json.dumps(old_data, cls=DjangoJSONEncoder)),
+            new_data=json.loads(json.dumps(serializer.data, cls=DjangoJSONEncoder))
+        )
+
     @action(detail=True, methods=['post'])
     def transfer(self, request, pk=None):
         """Transfer funds between wallets"""
