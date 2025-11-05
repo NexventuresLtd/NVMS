@@ -750,7 +750,7 @@ class SavingsGoalViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         """Get savings goal statistics"""
         goals = self.get_queryset()
-        active_goals = goals.filter(is_achieved=False)
+        active_goals = goals.filter(status='active')
         
         total_target = goals.aggregate(total=Sum('target_amount'))['total'] or 0
         total_saved = goals.aggregate(total=Sum('current_amount'))['total'] or 0

@@ -266,7 +266,7 @@ const SavingsGoals: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  {goal.is_achieved && (
+                  {goal.status == 'completed' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                       Achieved!
                     </span>

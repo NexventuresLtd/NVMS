@@ -240,7 +240,7 @@ export interface SavingsGoal {
   current_amount: string;
   deadline?: string | null;
   description?: string;
-  is_achieved: boolean;
+  status: 'active' | 'completed' | 'cancelled';
   created_at: string;
   updated_at: string;
 }
