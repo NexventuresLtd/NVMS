@@ -30,8 +30,8 @@ class ProjectNoteSerializer(serializers.ModelSerializer):
 
 class ProjectDocumentSerializer(serializers.ModelSerializer):
     uploaded_by = UserSerializer(read_only=True)
-    file_size_mb = serializers.ReadOnlyField()
-    file_extension = serializers.ReadOnlyField()
+    file_size_mb = serializers.SerializerMethodField()
+    file_extension = serializers.SerializerMethodField()
     
     class Meta:
         model = ProjectDocument
@@ -41,6 +41,19 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
             'file_size_mb', 'file_extension'
         ]
         read_only_fields = ['uploaded_by', 'created_at', 'updated_at']
+
+    def get_file_size_mb(self, obj):
+        try:
+            return round(obj.file.size / (1024 * 1024), 2)
+        except (ValueError, FileNotFoundError):
+            return 0
+
+    def get_file_extension(self, obj):
+        try:
+            import os
+            return os.path.splitext(obj.file.name)[1] if obj.file else ''
+        except (ValueError, AttributeError):
+            return ''
 
 
 class ProjectAssignmentSerializer(serializers.ModelSerializer):
