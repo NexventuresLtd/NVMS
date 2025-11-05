@@ -444,8 +444,8 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             entity_type='expense',
             entity_id=expense.id,
             description=f"Updated expense: {expense.title}",
-            old_data=old_data,
-            new_data=json.dumps(serializer.data, cls=DjangoJSONEncoder)
+            old_data=json.loads(json.dumps(old_data, cls=DjangoJSONEncoder)),
+            new_data=json.loads(json.dumps(serializer.data, cls=DjangoJSONEncoder))
         )
 
     def perform_destroy(self, instance):
