@@ -19,6 +19,7 @@ import walletApi, {
 } from "../../../services/walletApi";
 import { formatCurrency } from "../../../lib/utils";
 import { useAuth } from "../../../contexts/AuthContext";
+import { SearchableSelect } from "../../../components/SearchableSelect";
 
 const Income: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -447,20 +448,18 @@ const Income: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Project (Optional)
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={projects.map((project) => ({
+                      id: project.id,
+                      label: project.title,
+                    }))}
                     value={formData.project}
-                    onChange={(e) =>
-                      setFormData({ ...formData, project: e.target.value })
+                    onChange={(value) =>
+                      setFormData({ ...formData, project: value.toString() })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-                  >
-                    <option value="">No project</option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.title}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Search projects..."
+                    emptyLabel="No project"
+                  />
                 </div>
 
                 <div>

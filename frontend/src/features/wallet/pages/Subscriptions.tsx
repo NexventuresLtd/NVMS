@@ -18,6 +18,7 @@ import walletApi, {
   type Currency,
 } from "../../../services/walletApi";
 import { formatCurrency as formatCurrencyUtil } from "../../../lib/utils";
+import { SearchableSelect } from "../../../components/SearchableSelect";
 
 const Subscriptions: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -97,7 +98,7 @@ const Subscriptions: React.FC = () => {
       const payload = {
         wallet: parseInt(formData.wallet),
         category: parseInt(formData.category),
-        project: formData.project ? parseInt(formData.project) : null,
+        project: formData.project ? formData.project : null,
         tags: [],
         name: formData.name,
         amount: formData.amount,
@@ -460,20 +461,18 @@ const Subscriptions: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Project (Optional)
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={projects.map((project) => ({
+                      id: project.id,
+                      label: project.title,
+                    }))}
                     value={formData.project}
-                    onChange={(e) =>
-                      setFormData({ ...formData, project: e.target.value })
+                    onChange={(value) =>
+                      setFormData({ ...formData, project: value.toString() })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-                  >
-                    <option value="">No project</option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.title}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Search projects..."
+                    emptyLabel="No project"
+                  />
                 </div>
 
                 <div>

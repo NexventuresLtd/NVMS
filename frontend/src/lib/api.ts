@@ -37,7 +37,7 @@ api.interceptors.response.use(
       if (refreshToken) {
         try {
           // Call DRF SimpleJWT refresh endpoint
-          const response = await api.post('/api/auth/refresh/', {
+          const response = await api.post('/auth/refresh/', {
             refresh: refreshToken,
           });
 

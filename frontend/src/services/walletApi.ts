@@ -156,7 +156,7 @@ export interface ExpenseCreateData {
   wallet: number;
   category: number;
   tags?: number[];
-  project?: number | null;
+  project?: string | null;
   amount_original: string;
   currency_original: number;
   description: string;
@@ -199,7 +199,7 @@ export interface SubscriptionCreateData {
   wallet: number;
   category: number;
   tags?: number[];
-  project?: number | null;
+  project?: string | null;
   name: string;
   amount: string;
   billing_cycle: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'quarterly' | 'semi_annually';
