@@ -39,7 +39,6 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [allOptions, setAllOptions] = useState(options);
 
   // Get selected option label
   const [selectedOption, setSelectedOption] = useState(
