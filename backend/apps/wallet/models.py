@@ -260,6 +260,15 @@ class Income(models.Model):
 
     class Meta:
         ordering = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['date', 'wallet']),
+            models.Index(fields=['date', 'project']),
+            models.Index(fields=['-date']),
+            models.Index(fields=['is_recurring', 'next_occurrence']),  # For recurring processing
+            models.Index(fields=['category']),  # For category filtering
+            models.Index(fields=['created_by']),  # For user filtering
+        ]
+
 
     def __str__(self):
         project_info = f" ({self.project.title})" if self.project else ""
@@ -435,6 +444,14 @@ class Expense(models.Model):
 
     class Meta:
         ordering = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['date', 'wallet']),
+            models.Index(fields=['date', 'project']),
+            models.Index(fields=['-date']),
+            models.Index(fields=['is_recurring', 'next_occurrence']),  # For recurring processing
+            models.Index(fields=['category']),  # For category filtering
+            models.Index(fields=['created_by']),  # For user filtering
+        ]
 
     def __str__(self):
         project_info = f" ({self.project.title})" if self.project else ""
@@ -601,6 +618,13 @@ class Subscription(models.Model):
 
     class Meta:
         ordering = ['next_billing_date', 'name']
+        indexes = [
+            models.Index(fields=['next_billing_date', 'is_active']),  # For renewal processing
+            models.Index(fields=['status', 'is_active']),  # For filtering active subscriptions
+            models.Index(fields=['billing_cycle']),  # For stats aggregation
+            models.Index(fields=['wallet']),  # For wallet filtering
+            models.Index(fields=['category']),  # For category filtering
+        ]
 
     def __str__(self):
         return f"{self.name} - {self.wallet.currency.symbol}{self.amount}/{self.get_billing_cycle_display()}"

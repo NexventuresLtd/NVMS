@@ -78,8 +78,9 @@ class ProjectListSerializer(serializers.ModelSerializer):
     tags = ProjectTagSerializer(many=True, read_only=True)
     progress_percentage = serializers.ReadOnlyField()
     is_overdue = serializers.ReadOnlyField()
-    document_count = serializers.ReadOnlyField()
-    team_member_count = serializers.SerializerMethodField()
+    # Use annotated fields from viewset instead of model properties/methods
+    document_count = serializers.IntegerField(source='document_count_annotated', read_only=True)
+    team_member_count = serializers.IntegerField(source='team_member_count_annotated', read_only=True)
     
     class Meta:
         model = Project
@@ -90,9 +91,6 @@ class ProjectListSerializer(serializers.ModelSerializer):
             'updated_at', 'progress_percentage', 'is_overdue', 'tags', 'document_count',
             'team_member_count'
         ]
-    
-    def get_team_member_count(self, obj):
-        return obj.assignments.filter(is_active=True).count()
 
 
 class ProjectDetailSerializer(serializers.ModelSerializer):

@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth.models import User
+from django.db.models import Count, Q
 from .models import Project, ProjectTag, ProjectNote, ProjectDocument, ProjectAssignment
 from .serializers import (
     ProjectListSerializer,
@@ -38,6 +39,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
+        
+        # Annotate counts for list view to avoid N+1 queries
+        if self.action == 'list':
+            queryset = queryset.annotate(
+                team_member_count_annotated=Count(
+                    'assignments', 
+                    filter=Q(assignments__is_active=True),
+                    distinct=True
+                ),
+                document_count_annotated=Count('documents', distinct=True)
+            )
         
         # Filter by status if provided
         status_filter = self.request.query_params.get('status')
@@ -284,42 +296,62 @@ class ProjectViewSet(viewsets.ModelViewSet):
     
     @action(detail=False)
     def stats(self, request):
-        """Get project statistics"""
+        """Get project statistics - optimized with conditional aggregation"""
         queryset = self.get_queryset()
-        
-        stats = {
-            'total': queryset.count(),
-            'by_status': {},
-            'by_priority': {},
-            'overdue': 0,
-            'completed_this_month': 0,
-        }
-        
-        # Count by status
-        for status_choice in Project._meta.get_field('status').choices:
-            stats['by_status'][status_choice[0]] = queryset.filter(
-                status=status_choice[0]
-            ).count()
-        
-        # Count by priority
-        for priority_choice in Project._meta.get_field('priority').choices:
-            stats['by_priority'][priority_choice[0]] = queryset.filter(
-                priority=priority_choice[0]
-            ).count()
-        
-        # Count overdue projects
         from django.utils import timezone
-        stats['overdue'] = queryset.filter(
-            due_date__lt=timezone.now().date(),
-            status__in=['planning', 'in_progress', 'testing']
-        ).count()
         
-        # Count completed this month
-        current_month = timezone.now().replace(day=1)
-        stats['completed_this_month'] = queryset.filter(
-            status='completed',
-            completed_date__gte=current_month
-        ).count()
+        # Single query to get all stats with conditional aggregation
+        # This is MUCH faster than looping through choices
+        stats_data = queryset.aggregate(
+            total=Count('id'),
+            
+            # Count by status in ONE query using Q filters
+            planning=Count('id', filter=Q(status='planning')),
+            in_progress=Count('id', filter=Q(status='in_progress')),
+            testing=Count('id', filter=Q(status='testing')),
+            completed=Count('id', filter=Q(status='completed')),
+            on_hold=Count('id', filter=Q(status='on_hold')),
+            cancelled=Count('id', filter=Q(status='cancelled')),
+            
+            # Count by priority in ONE query
+            low=Count('id', filter=Q(priority='low')),
+            medium=Count('id', filter=Q(priority='medium')),
+            high=Count('id', filter=Q(priority='high')),
+            urgent=Count('id', filter=Q(priority='urgent')),
+            
+            # Overdue count
+            overdue=Count('id', filter=Q(
+                due_date__lt=timezone.now().date(),
+                status__in=['planning', 'in_progress', 'testing']
+            )),
+            
+            # Completed this month
+            completed_this_month=Count('id', filter=Q(
+                status='completed',
+                completed_date__gte=timezone.now().replace(day=1)
+            ))
+        )
+        
+        # Format response
+        stats = {
+            'total': stats_data['total'],
+            'by_status': {
+                'planning': stats_data['planning'],
+                'in_progress': stats_data['in_progress'],
+                'testing': stats_data['testing'],
+                'completed': stats_data['completed'],
+                'on_hold': stats_data['on_hold'],
+                'cancelled': stats_data['cancelled'],
+            },
+            'by_priority': {
+                'low': stats_data['low'],
+                'medium': stats_data['medium'],
+                'high': stats_data['high'],
+                'urgent': stats_data['urgent'],
+            },
+            'overdue': stats_data['overdue'],
+            'completed_this_month': stats_data['completed_this_month'],
+        }
         
         return Response(stats)
 

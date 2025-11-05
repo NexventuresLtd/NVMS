@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-from django.db.models import Sum, Q, F
+from django.db.models import Sum, Q, F, Case, When, DecimalField, Value
 from django.utils import timezone
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -17,11 +17,11 @@ from .models import (
     TransactionHistory
 )
 from .serializers import (
-    CurrencySerializer, WalletSerializer, TransactionCategorySerializer,
-    TransactionTagSerializer, IncomeSerializer, IncomeListSerializer,
-    ExpenseSerializer, ExpenseListSerializer, SubscriptionSerializer,
-    SubscriptionListSerializer, BudgetSerializer, SavingsGoalSerializer,
-    TransactionHistorySerializer, WalletSummarySerializer,
+    CurrencySerializer, WalletSerializer, WalletReferenceSerializer,
+    TransactionCategorySerializer, TransactionTagSerializer, IncomeSerializer, 
+    IncomeListSerializer, ExpenseSerializer, ExpenseListSerializer, 
+    SubscriptionSerializer, SubscriptionListSerializer, BudgetSerializer, 
+    SavingsGoalSerializer, TransactionHistorySerializer, WalletSummarySerializer,
     MonthlyReportSerializer, ProjectProfitabilitySerializer,
     CashFlowSerializer
 )
@@ -35,14 +35,15 @@ class ReferenceDataView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        """Get all reference data in one request"""
+        """Get all reference data in one request - optimized with lightweight serializers"""
+        # Use select_related to avoid N+1 queries
         wallets = Wallet.objects.filter(is_active=True).select_related('currency')
         currencies = Currency.objects.filter(is_active=True)
         categories = TransactionCategory.objects.filter(is_active=True).select_related('parent')
         tags = TransactionTag.objects.filter(is_active=True)
         
         return Response({
-            'wallets': WalletSerializer(wallets, many=True).data,
+            'wallets': WalletReferenceSerializer(wallets, many=True).data,
             'currencies': CurrencySerializer(currencies, many=True).data,
             'categories': TransactionCategorySerializer(categories, many=True).data,
             'tags': TransactionTagSerializer(tags, many=True).data,
@@ -201,21 +202,24 @@ class WalletViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """Get summary of all wallets (totals in RWF)"""
-        wallets = self.get_queryset()
-        summaries = []
+        from django.db.models import Sum, DecimalField
+        from django.db.models.functions import Coalesce
         
+        wallets = self.get_queryset().annotate(
+            total_income=Coalesce(Sum('incomes__amount_rwf'), 0, output_field=DecimalField()),
+            total_expense=Coalesce(Sum('expenses__amount_rwf'), 0, output_field=DecimalField())
+        ).select_related('currency')
+        
+        summaries = []
         for wallet in wallets:
-            total_income = wallet.incomes.aggregate(total=Sum('amount_rwf'))['total'] or 0
-            total_expense = wallet.expenses.aggregate(total=Sum('amount_rwf'))['total'] or 0
-            
             summaries.append({
                 'wallet_id': wallet.id,
                 'wallet_name': wallet.name,
                 'balance': wallet.balance,
                 'balance_rwf': wallet.balance_rwf,
-                'total_income': total_income,
-                'total_expense': total_expense,
-                'net_flow': total_income - total_expense,
+                'total_income': wallet.total_income,
+                'total_expense': wallet.total_expense,
+                'net_flow': wallet.total_income - wallet.total_expense,
                 'currency_code': wallet.currency.code,
                 'base_currency': 'RWF'
             })
@@ -269,7 +273,18 @@ class IncomeViewSet(viewsets.ModelViewSet):
         return IncomeSerializer
 
     def get_queryset(self):
-        queryset = Income.objects.all()
+        # Optimize with select_related for ForeignKeys and prefetch_related for ManyToMany
+        # This reduces N+1 queries dramatically
+        queryset = Income.objects.select_related(
+            'wallet',
+            'wallet__currency',
+            'project',
+            'category',
+            'category__parent',
+            'currency_original',
+            'created_by'
+        ).prefetch_related('tags')
+
         
         # Filter by date range
         start_date = self.request.query_params.get('start_date')
@@ -402,7 +417,17 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         return ExpenseSerializer
 
     def get_queryset(self):
-        queryset = Expense.objects.all()
+        # Optimize with select_related for ForeignKeys and prefetch_related for ManyToMany
+        queryset = Expense.objects.select_related(
+            'wallet',
+            'wallet__currency',
+            'project',
+            'category',
+            'category__parent',
+            'currency_original',
+            'created_by'
+        ).prefetch_related('tags')
+
         
         # Filter by date range
         start_date = self.request.query_params.get('start_date')
@@ -535,7 +560,14 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         return SubscriptionSerializer
 
     def get_queryset(self):
-        return Subscription.objects.all()
+        # Optimize with select_related for ForeignKeys
+        return Subscription.objects.select_related(
+            'wallet',
+            'wallet__currency',
+            'category',
+            'category__parent',
+            'currency_original'
+        )
 
     def perform_create(self, serializer):
         serializer.save()
@@ -608,21 +640,28 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        """Get subscription statistics (monthly costs in RWF)"""
+        """Get subscription statistics (monthly costs in RWF) - optimized with database aggregation"""
         subscriptions = self.get_queryset()
         active_subscriptions = subscriptions.filter(is_active=True)
         
-        # Calculate monthly cost (converting all billing cycles to monthly equivalent, using RWF amounts)
-        total_monthly_cost = Decimal('0')
-        for sub in active_subscriptions:
-            if sub.billing_cycle == 'monthly':
-                total_monthly_cost += Decimal(sub.amount_rwf)
-            elif sub.billing_cycle == 'yearly':
-                total_monthly_cost += Decimal(sub.amount_rwf) / 12
-            elif sub.billing_cycle == 'weekly':
-                total_monthly_cost += Decimal(sub.amount_rwf) * 4
-            elif sub.billing_cycle == 'daily':
-                total_monthly_cost += Decimal(sub.amount_rwf) * 30
+        # Calculate monthly cost using database-level CASE/WHEN instead of Python loop
+        # This is MUCH faster as it happens in one query instead of N iterations
+        monthly_cost_aggregate = active_subscriptions.aggregate(
+            total_monthly_cost=Sum(
+                Case(
+                    When(billing_cycle='monthly', then=F('amount_rwf')),
+                    When(billing_cycle='yearly', then=F('amount_rwf') / Value(12)),
+                    When(billing_cycle='quarterly', then=F('amount_rwf') / Value(3)),
+                    When(billing_cycle='semi_annually', then=F('amount_rwf') / Value(6)),
+                    When(billing_cycle='weekly', then=F('amount_rwf') * Value(4)),
+                    When(billing_cycle='daily', then=F('amount_rwf') * Value(30)),
+                    default=Value(0),
+                    output_field=DecimalField(max_digits=15, decimal_places=2)
+                )
+            )
+        )
+        
+        total_monthly_cost = monthly_cost_aggregate['total_monthly_cost'] or Decimal('0')
         
         return Response({
             'total_monthly_cost': str(total_monthly_cost),
@@ -865,7 +904,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def cash_flow(self, request):
-        """Get cash flow over time (all amounts in RWF)"""
+        """Get cash flow over time (all amounts in RWF) - optimized with efficient queries"""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         
@@ -878,26 +917,30 @@ class AnalyticsViewSet(viewsets.ViewSet):
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
         
         # Get all transactions in date range (using RWF amounts)
+        # Use values() to get only what we need, not full objects
         incomes = Income.objects.filter(
-            # user=request.user,
             date__gte=start_date,
             date__lte=end_date
         ).values('date').annotate(total=Sum('amount_rwf'))
         
         expenses = Expense.objects.filter(
-            # user=request.user,
             date__gte=start_date,
             date__lte=end_date
         ).values('date').annotate(total=Sum('amount_rwf'))
         
-        # Build daily cash flow
+        # Convert to dictionaries for O(1) lookup instead of O(N) iteration per day
+        income_dict = {item['date']: item['total'] for item in incomes}
+        expense_dict = {item['date']: item['total'] for item in expenses}
+        
+        # Build daily cash flow using dictionary lookups (much faster than filtering lists)
         cash_flow_data = []
-        cumulative_balance = 0
+        cumulative_balance = Decimal('0')
         
         current_date = start_date
         while current_date <= end_date:
-            day_income = sum(i['total'] for i in incomes if i['date'] == current_date)
-            day_expense = sum(e['total'] for e in expenses if e['date'] == current_date)
+            # O(1) dictionary lookup instead of O(N) list filtering
+            day_income = income_dict.get(current_date, Decimal('0'))
+            day_expense = expense_dict.get(current_date, Decimal('0'))
             net_flow = day_income - day_expense
             cumulative_balance += net_flow
             

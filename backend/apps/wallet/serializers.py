@@ -20,30 +20,38 @@ class CurrencySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class WalletSerializer(serializers.ModelSerializer):
-    currency_details = CurrencySerializer(source='currency', read_only=True)
-    user_details = UserSerializer(source='user', read_only=True)
+# Lightweight wallet serializer for reference data (no expensive computations)
+class WalletReferenceSerializer(serializers.ModelSerializer):
+    """Lightweight wallet serializer for dropdowns and reference data"""
+    currency_code = serializers.CharField(source='currency.code', read_only=True)
+    currency_symbol = serializers.CharField(source='currency.symbol', read_only=True)
     wallet_type_display = serializers.CharField(source='get_wallet_type_display', read_only=True)
     
-    # Statistics
-    total_income = serializers.SerializerMethodField()
-    total_expense = serializers.SerializerMethodField()
+    class Meta:
+        model = Wallet
+        fields = ['id', 'name', 'wallet_type', 'wallet_type_display', 'currency', 
+                  'currency_code', 'currency_symbol', 'balance', 'balance_rwf', 'is_active']
+        read_only_fields = ['balance', 'balance_rwf']
+
+
+class WalletSerializer(serializers.ModelSerializer):
+    currency_details = CurrencySerializer(source='currency', read_only=True)
+    wallet_type_display = serializers.CharField(source='get_wallet_type_display', read_only=True)
+    
+    # Removed expensive SerializerMethodFields that query all incomes/expenses
+    # These should be computed at the view level when needed, not on every serialization
     
     class Meta:
         model = Wallet
         fields = '__all__'
         read_only_fields = ['balance', 'balance_rwf', 'created_at', 'updated_at']
 
-    def get_total_income(self, obj):
-        return sum(income.amount for income in obj.incomes.all())
-
-    def get_total_expense(self, obj):
-        return sum(expense.amount for expense in obj.expenses.all())
-
 
 class TransactionCategorySerializer(serializers.ModelSerializer):
     parent_details = serializers.SerializerMethodField()
-    subcategories = serializers.SerializerMethodField()
+    # Removed recursive subcategories - causes exponential queries
+    # Return only IDs if needed or fetch separately
+    subcategory_ids = serializers.SerializerMethodField()
     full_path = serializers.ReadOnlyField()
     category_type_display = serializers.CharField(source='get_category_type_display', read_only=True)
     
@@ -60,10 +68,9 @@ class TransactionCategorySerializer(serializers.ModelSerializer):
             }
         return None
 
-    def get_subcategories(self, obj):
-        if obj.subcategories.exists():
-            return TransactionCategorySerializer(obj.subcategories.all(), many=True).data
-        return []
+    def get_subcategory_ids(self, obj):
+        """Return only IDs to avoid recursive serialization"""
+        return list(obj.subcategories.filter(is_active=True).values_list('id', flat=True))
 
 
 class TransactionTagSerializer(serializers.ModelSerializer):

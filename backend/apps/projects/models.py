@@ -113,6 +113,16 @@ class Project(models.Model):
         ordering = ['-created_at']
         verbose_name = 'Project'
         verbose_name_plural = 'Projects'
+        indexes = [
+            models.Index(fields=['status', 'priority']),  # For filtering by status and priority
+            models.Index(fields=['due_date', 'status']),  # For overdue checks
+            models.Index(fields=['completed_date']),  # For completed this month queries
+            models.Index(fields=['created_at']),  # For default ordering
+            models.Index(fields=['is_active', 'status']),  # For active project filtering
+            models.Index(fields=['assigned_to', 'is_active']),  # For my_projects queries
+            models.Index(fields=['supervisor', 'is_active']),  # For supervisor queries
+            models.Index(fields=['client_name']),  # For client search
+        ]
     
     def __str__(self):
         return self.title
@@ -239,6 +249,9 @@ class ProjectTagAssignment(models.Model):
     
     class Meta:
         unique_together = ['project', 'tag']
+        indexes = [
+            models.Index(fields=['project', 'tag']),  # For tag lookups
+        ]
 
 
 def project_note_image_upload_path(instance, filename):
@@ -258,6 +271,10 @@ class ProjectNote(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['project', 'created_at']),  # For project notes list
+            models.Index(fields=['is_internal']),  # For filtering internal vs client notes
+        ]
     
     def __str__(self):
         return f"Note for {self.project.title} by {self.author.username}"
@@ -293,6 +310,11 @@ class ProjectDocument(models.Model):
     class Meta:
         ordering = ['-created_at']
         unique_together = ['project', 'title', 'version']
+        indexes = [
+            models.Index(fields=['project', 'created_at']),  # For document lists
+            models.Index(fields=['is_confidential']),  # For filtering confidential docs
+            models.Index(fields=['document_type']),  # For filtering by type
+        ]
     
     def __str__(self):
         return f"{self.title} ({self.get_document_type_display()}) - {self.project.title}"
@@ -333,6 +355,11 @@ class ProjectAssignment(models.Model):
     class Meta:
         unique_together = ['project', 'user', 'role']
         ordering = ['role', 'assigned_date']
+        indexes = [
+            models.Index(fields=['project', 'is_active']),  # For active assignments list
+            models.Index(fields=['user', 'is_active']),  # For user's assignments
+            models.Index(fields=['role', 'is_active']),  # For role-based filtering
+        ]
     
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} - {self.get_role_display()} on {self.project.title}"
