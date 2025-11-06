@@ -34,7 +34,7 @@ export const navItems: NavItem[] = [
       name: "Finance",
       icon: Wallet,
       hasSubmenu: true,
-      requiredGroups: ["Finance", "Admin"],
+      requiredGroups: ["Finance Managers", "Finance Viewers", "Admin"],
       submenu: [
         { name: "Overview", href: "/wallet/dashboard", icon: BarChart2 },
         { name: "Wallets", href: "/wallet/accounts", icon: CreditCard },

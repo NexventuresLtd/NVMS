@@ -18,11 +18,10 @@ import walletApi, {
   type ReferenceData,
 } from "../../../services/walletApi";
 import { formatCurrency } from "../../../lib/utils";
-import { useAuth } from "../../../contexts/AuthContext";
 import { SearchableSelect } from "../../../components/SearchableSelect";
+import { GroupPermission } from "../../../components/GroupPermission";
 
 const Income: React.FC = () => {
-  const { isAdmin } = useAuth();
   const [income, setIncome] = useState<IncomeType[]>([]);
   const [stats, setStats] = useState<IncomeStats | null>(null);
   const [referenceData, setReferenceData] = useState<ReferenceData | null>(
@@ -188,13 +187,15 @@ const Income: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Income</h1>
           <p className="text-gray-500 mt-2">Track your income transactions</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Add Income
-        </button>
+        <GroupPermission group="Finance Managers">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Add Income
+          </button>
+        </GroupPermission>
       </div>
 
       {/* Stats Cards */}
@@ -297,11 +298,11 @@ const Income: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
-                  {isAdmin && (
+                  <GroupPermission group="Finance Managers">
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
-                  )}
+                  </GroupPermission>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -348,7 +349,7 @@ const Income: React.FC = () => {
                           ≈ {formatCurrency(parseFloat(item.amount_rwf), "RWF")}
                         </div>
                       </td>
-                      {isAdmin && (
+                      <GroupPermission group="Finance Managers">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div className="flex items-center gap-2">
                             <button
@@ -367,7 +368,7 @@ const Income: React.FC = () => {
                             </button>
                           </div>
                         </td>
-                      )}
+                      </GroupPermission>
                     </tr>
                   );
                 })}

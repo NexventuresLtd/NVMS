@@ -14,10 +14,17 @@ class GroupSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     groups = GroupSerializer(many=True, read_only=True)
+    # permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
+        # fields = ['id', 'username', 'first_name', 'last_name', 'email', 'groups', 'permissions']
         fields = ['id', 'username', 'first_name', 'last_name', 'email', 'groups']
+
+    # def get_permissions(self, obj):
+    #     # Returns a list of permission strings like "app_label.codename"
+    #     return list(obj.get_all_permissions())
+
 
 
 class CurrencySerializer(serializers.ModelSerializer):

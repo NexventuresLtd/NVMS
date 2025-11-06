@@ -2,7 +2,7 @@ import type { NavItem, SubmenuItem } from "../components/Sidebar";
 import type { User } from "../contexts/AuthContext";
 
 interface hasGroupParams {
-  user: User
+  user: User | null | undefined;
   groupName: string;
 }
 
@@ -13,7 +13,7 @@ export function hasGroup({user, groupName}: hasGroupParams): boolean | undefined
 export function filterNavigationByGroups(
   navigation: NavItem[],
   userGroups: string[]
-): NavItem[] | SubmenuItem[] {
+): NavItem[] {
   return navigation
     .filter(
       (item) =>
@@ -23,8 +23,19 @@ export function filterNavigationByGroups(
     .map((item) => ({
       ...item,
       submenu: item.submenu
-        ? filterNavigationByGroups(item.submenu, userGroups)
+        ? filterSubmenu(item.submenu, userGroups)
         : undefined,
     }));
+}
+
+function filterSubmenu(
+  submenu: SubmenuItem[],
+  userGroups: string[]
+): SubmenuItem[] {
+  return submenu.filter(
+    (item) =>
+      !item.requiredGroups ||
+      item.requiredGroups.some((group) => userGroups.includes(group))
+  );
 }
 

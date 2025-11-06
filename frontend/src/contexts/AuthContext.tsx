@@ -13,6 +13,7 @@ export interface User {
   is_superuser: boolean;
   groups: Group[];
   groupNames: string[];
+  permissions: string[];
 }
 
 export interface Group {
@@ -25,6 +26,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  // hasPermission: (perm: string) => boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -47,10 +49,15 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // const [permissions, setPermissions] = useState<string[]>([]);
+
+  // const hasPermission = (perm: string) => permissions.includes(perm);
 
   const fetchCurrentUser = async () => {
     try {
       const userData = await authApi.getCurrentUser();
+      console.log(userData);
+      // setPermissions(userData.permissions);
       setUser({ ...userData, groupNames: userData.groups.map((g) => g.name) });
     } catch (error) {
       console.error("Failed to fetch current user:", error);
@@ -88,6 +95,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading,
     isAuthenticated: !!user,
     isAdmin: user?.is_admin || false,
+    // hasPermission,
     login,
     logout,
     refreshUser,
