@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from .models import (
     Currency, Wallet, TransactionCategory, TransactionTag,
     Income, Expense, Subscription, Budget, SavingsGoal,
@@ -7,11 +7,17 @@ from .models import (
 )
 from apps.projects.serializers import ProjectListSerializer
 
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ['id', 'name']
 
 class UserSerializer(serializers.ModelSerializer):
+    groups = GroupSerializer(many=True, read_only=True)
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email']
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'groups']
 
 
 class CurrencySerializer(serializers.ModelSerializer):

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { User } from '../contexts/AuthContext';
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -25,39 +26,31 @@ api.interceptors.request.use(
 
 // Response interceptor to handle errors
 api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
+  response => response,
+  async error => {
     const originalRequest = error.config;
 
-    // If 401 and we haven't retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-
       const refreshToken = localStorage.getItem('refresh_token');
+
       if (refreshToken) {
         try {
-          // Call DRF SimpleJWT refresh endpoint
-          const response = await api.post('/auth/refresh/', {
-            refresh: refreshToken,
-          });
-
-          const newAccessToken = response.data.access;
-
-          // Save new access token
-          localStorage.setItem('access_token', newAccessToken);
-
-          // Update the Authorization header and retry original request
-          originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+          const { data } = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/refresh/`, { refresh: refreshToken });
+          localStorage.setItem('access_token', data.access);
+          originalRequest.headers['Authorization'] = `Bearer ${data.access}`;
           return api(originalRequest);
         } catch (refreshError) {
-          console.error('Refresh token failed', refreshError);
-          // If refresh fails, log out
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           window.location.href = '/login';
+          return Promise.reject(refreshError);
         }
       } else {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
         window.location.href = '/login';
+        return Promise.reject(error);
       }
     }
 
@@ -65,5 +58,32 @@ api.interceptors.response.use(
   }
 );
 
-export { api };
+
+// Auth wrapper
+const authApi = {
+  login: async (username: string, password: string) => {
+    const res = await api.post('/auth/login/', { username, password });
+    localStorage.setItem('access_token', res.data.access);
+    localStorage.setItem('refresh_token', res.data.refresh);
+    return res.data;
+  },
+
+  logout: () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    window.location.href = '/login';
+  },
+
+  getCurrentUser: async (): Promise<User> => {
+    const res = await api.get('/auth/me/');
+    return res.data;
+  },
+
+  isAuthenticated: () => !!localStorage.getItem('access_token'),
+
+  getAccessToken: () => localStorage.getItem('access_token'),
+  getRefreshToken: () => localStorage.getItem('refresh_token'),
+};
+
+export { api, authApi };
 export default api;

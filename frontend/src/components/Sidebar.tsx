@@ -1,30 +1,17 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Home,
-  Briefcase,
-  FolderOpen,
-  MessageSquare,
-  Megaphone,
-  Wallet,
-  Users,
   Settings,
   LogOut,
   User,
-  BarChart3,
   ChevronLeft,
   ChevronDown,
   ChevronRight,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  CreditCard,
-  PiggyBank,
-  Receipt,
-  Tags,
-  BarChart2,
 } from "lucide-react";
-import authApi from "../services/authApi";
+import { useAuth } from "../contexts/AuthContext";
+import { filterNavigationByGroups } from "../utils/auth";
+import { navItems } from "../constants/navigation";
+import { authApi } from "../lib/api";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -34,17 +21,18 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-interface NavItem {
+export interface SubmenuItem extends Omit<NavItem, "href"> {
+  href: string;
+}
+
+export interface NavItem {
   name: string;
   href?: string;
   icon: React.ComponentType<{ className?: string }>;
   disabled?: boolean;
   hasSubmenu?: boolean;
-  submenu?: {
-    name: string;
-    href: string;
-    icon: React.ComponentType<{ className?: string }>;
-  }[];
+  submenu?: SubmenuItem[];
+  requiredGroups?: string[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -54,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   onToggle,
 }) => {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
@@ -67,35 +56,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }));
   };
 
-  const navigation: NavItem[] = [
-    { name: "Dashboard", href: "/dashboard", icon: Home },
-    { name: "Portfolio Admin", href: "/admin/portfolio", icon: Briefcase },
-    { name: "Public Portfolio", href: "/portfolio", icon: FolderOpen },
-    { name: "Projects", href: "/projects", icon: BarChart3 },
-    {
-      name: "Wallet",
-      icon: Wallet,
-      hasSubmenu: true,
-      submenu: [
-        { name: "Overview", href: "/wallet/dashboard", icon: BarChart2 },
-        { name: "Wallets", href: "/wallet/accounts", icon: CreditCard },
-        { name: "Income", href: "/wallet/income", icon: TrendingUp },
-        { name: "Expenses", href: "/wallet/expenses", icon: TrendingDown },
-        { name: "Subscriptions", href: "/wallet/subscriptions", icon: Receipt },
-        { name: "Budgets", href: "/wallet/budgets", icon: DollarSign },
-        { name: "Savings Goals", href: "/wallet/goals", icon: PiggyBank },
-        { name: "Categories", href: "/wallet/categories", icon: Tags },
-      ],
-    },
-    {
-      name: "Messages",
-      href: "/messages",
-      icon: MessageSquare,
-      disabled: true,
-    },
-    { name: "Bulletin", href: "/bulletin", icon: Megaphone, disabled: true },
-    { name: "Team", href: "/team", icon: Users, disabled: true },
-  ];
+  const filteredNavItems: NavItem[] = filterNavigationByGroups(
+    navItems,
+    user?.groupNames || []
+  );
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -160,7 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Navigation */}
           <nav className="flex-1 px-2 py-6 space-y-1 overflow-y-auto overflow-x-hidden">
-            {navigation.map((item) => {
+            {filteredNavItems.map((item) => {
               const Icon = item.icon;
               const isMenuExpanded =
                 item.hasSubmenu && expandedMenus[item.name.toLowerCase()];
@@ -314,11 +278,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-900">
-                      Admin User
+                      {user?.username}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      admin@nexventures.net
-                    </p>
+                    <p className="text-xs text-gray-500">{user?.email}</p>
                   </div>
                 </div>
 

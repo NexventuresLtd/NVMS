@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
-import authApi from "../services/authApi";
+import { authApi } from "../lib/api";
 
 export interface User {
   id: number;
@@ -11,6 +11,13 @@ export interface User {
   is_admin: boolean;
   is_staff: boolean;
   is_superuser: boolean;
+  groups: Group[];
+  groupNames: string[];
+}
+
+export interface Group {
+  id: number;
+  name: string;
 }
 
 interface AuthContextType {
@@ -44,7 +51,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const fetchCurrentUser = async () => {
     try {
       const userData = await authApi.getCurrentUser();
-      setUser(userData);
+      setUser({ ...userData, groupNames: userData.groups.map((g) => g.name) });
     } catch (error) {
       console.error("Failed to fetch current user:", error);
       setUser(null);
@@ -63,7 +70,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (username: string, password: string) => {
-    await authApi.login({ username, password });
+    await authApi.login(username, password);
     await fetchCurrentUser();
   };
 
