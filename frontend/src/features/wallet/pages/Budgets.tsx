@@ -8,11 +8,12 @@ import {
   TrendingUp,
   AlertCircle,
 } from "lucide-react";
-import walletApi, {
+import walletApi from "../../../services/walletApi";
+import {
   type Budget,
   type BudgetStats,
   type TransactionCategory,
-} from "../../../services/walletApi";
+} from "../../../types/wallet";
 
 const Budgets: React.FC = () => {
   const [budgets, setBudgets] = useState<Budget[]>([]);

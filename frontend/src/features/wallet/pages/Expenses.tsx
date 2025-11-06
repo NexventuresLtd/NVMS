@@ -8,7 +8,8 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
-import walletApi, {
+import walletApi from "../../../services/walletApi";
+import {
   type Expense as ExpenseType,
   type ExpenseStats,
   type Wallet,
@@ -16,7 +17,7 @@ import walletApi, {
   type Project,
   type Currency,
   type ReferenceData,
-} from "../../../services/walletApi";
+} from "../../../types/wallet";
 import { formatCurrency as formatCurrencyUtil } from "../../../lib/utils";
 import { useAuth } from "../../../contexts/AuthContext";
 import { SearchableSelect } from "../../../components/SearchableSelect";

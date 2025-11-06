@@ -8,7 +8,8 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
-import walletApi, {
+import walletApi from "../../../services/walletApi";
+import {
   type Income as IncomeType,
   type IncomeStats,
   type Wallet,
@@ -16,7 +17,7 @@ import walletApi, {
   type Project,
   type Currency,
   type ReferenceData,
-} from "../../../services/walletApi";
+} from "../../../types/wallet";
 import { formatCurrency } from "../../../lib/utils";
 import { SearchableSelect } from "../../../components/SearchableSelect";
 import { GroupPermission } from "../../../components/GroupPermission";

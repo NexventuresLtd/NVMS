@@ -7,8 +7,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
-import walletApi, { type DashboardStats } from "../../../services/walletApi";
+import walletApi from "../../../services/walletApi";
 import { formatCurrency } from "../../../lib/utils";
+import type { DashboardStats } from "../../../types/wallet";
 
 const WalletDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, X, Tag, FolderOpen, Hash } from "lucide-react";
-import walletApi, {
+import walletApi from "../../../services/walletApi";
+import {
   type TransactionCategory,
   type TransactionTag,
-} from "../../../services/walletApi";
+} from "../../../types/wallet";
 
 const Categories: React.FC = () => {
   const [categories, setCategories] = useState<TransactionCategory[]>([]);

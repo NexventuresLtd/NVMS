@@ -8,14 +8,15 @@ import {
   Calendar,
   DollarSign,
 } from "lucide-react";
-import walletApi, {
+import walletApi from "../../../services/walletApi";
+import {
   type Subscription,
   type SubscriptionStats,
   type Wallet,
   type TransactionCategory,
   type ReferenceData,
   type Currency,
-} from "../../../services/walletApi";
+} from "../../../types/wallet";
 import { formatCurrency as formatCurrencyUtil } from "../../../lib/utils";
 
 const Subscriptions: React.FC = () => {

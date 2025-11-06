@@ -8,11 +8,9 @@ import {
   Wallet as WalletIcon,
   ArrowRightLeft,
 } from "lucide-react";
-import walletApi, {
-  type Wallet,
-  type Currency,
-} from "../../../services/walletApi";
+import walletApi from "../../../services/walletApi";
 import { formatCurrency } from "../../../lib/utils";
+import type { Currency, Wallet } from "../../../types/wallet";
 
 const WalletAccounts: React.FC = () => {
   const [wallets, setWallets] = useState<Wallet[]>([]);
