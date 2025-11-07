@@ -411,7 +411,7 @@ const Income: React.FC = () => {
                     <option value="">Select wallet</option>
                     {referenceData?.wallets.map((wallet) => (
                       <option key={wallet.id} value={wallet.id}>
-                        {wallet.name} ({wallet.currency_details.symbol}
+                        {wallet.name} ({wallet.currency_symbol}
                         {wallet.balance})
                       </option>
                     ))}

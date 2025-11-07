@@ -23,6 +23,9 @@ export interface Wallet {
   updated_at: string;
   total_income?: string;
   total_expense?: string;
+  currency_code?: string;
+  currency_symbol?: string;
+  balance_rwf?: string;
 }
 
 export interface WalletCreateData {
